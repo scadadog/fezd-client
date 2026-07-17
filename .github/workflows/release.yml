@@ -1,12 +1,17 @@
 name: Release
 
-# On every push to main: determine the next SemVer from Directory.Build.props
+# On code pushes to main: determine the next SemVer from Directory.Build.props
 # (auto-bump patch if that tag already exists), tag it, build Native AOT
 # fezd-client for linux-x64 / osx-arm64 / win-x64, and publish a GitHub Release.
+# Docs-only pushes (README/CHANGELOG/etc.) do not cut a release.
 
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "LICENSE*"
+      - ".gitignore"
 
 concurrency:
   group: fezd-client-release

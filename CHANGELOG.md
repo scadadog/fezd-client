@@ -4,6 +4,12 @@ Notable changes to **fezd-client**.
 
 ## [Unreleased]
 
+### Changed
+
+- Shared catalog: `fezd-server serve` documents service install/start/stop/
+  restart/status/foreground; the separate `service` verb is removed from help
+  (still rejected as host-only on fezd-client).
+
 ### Added
 
 - **`fezd-client update`** — download and install the latest release for this

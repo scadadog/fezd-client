@@ -13,7 +13,7 @@ namespace Fezd.Contracts.Tests
             string[] localOnly =
             {
                 "install", "register", "unregister", "doctor", "disconnect", "inspect",
-                "serve", "setup", "license", "pin", "service"
+                "serve", "setup", "license", "pin"
             };
             foreach (string name in localOnly)
             {
@@ -24,11 +24,27 @@ namespace Fezd.Contracts.Tests
                 Assert.True(CommandCatalog.IsHostOnlyVerb(name));
             }
 
+            // Removed from help; still host-only so fezd-client rejects it clearly.
+            Assert.Null(CommandCatalog.Find("service"));
+            Assert.True(CommandCatalog.IsHostOnlyVerb("service"));
+
             Assert.True(CommandCatalog.IsHostOnlyVerb("reg"));
             Assert.True(CommandCatalog.IsHostOnlyVerb("provision"));
             Assert.False(CommandCatalog.IsHostOnlyVerb("deploy"));
             Assert.False(CommandCatalog.IsHostOnlyVerb("health"));
             Assert.False(CommandCatalog.IsHostOnlyVerb("cancel"));
+        }
+
+        [Fact]
+        public void Serve_DocumentsServiceControlFlags()
+        {
+            CommandInfo serve = CommandCatalog.Find("serve");
+            Assert.NotNull(serve);
+            string joined = string.Join(" ", serve.DetailLines);
+            Assert.Contains("Windows service", joined);
+            Assert.Contains(serve.Options, o => o.Spec == "--start");
+            Assert.Contains(serve.Options, o => o.Spec == "--foreground");
+            Assert.Contains(serve.Options, o => o.Spec == "--restart");
         }
 
         [Fact]
@@ -99,6 +115,10 @@ namespace Fezd.Contracts.Tests
             Assert.Contains("\n  health", client);
             Assert.Contains("\n  update", client);
             Assert.Contains("\n  update", server);
+            Assert.Contains("\n  serve", server);
+            Assert.DoesNotContain("\n  service", server);
+            Assert.Contains("--start", server);
+            Assert.Contains("--foreground", server);
 
             Assert.Contains("fezd-server", server);
             Assert.Contains("\n  serve", server);
@@ -216,6 +236,10 @@ namespace Fezd.Contracts.Tests
             Assert.DoesNotContain(CommandCatalog.ClientExamples, ex =>
                 ex.StartsWith("doctor ", StringComparison.Ordinal));
             Assert.Contains(CommandCatalog.ServerExamples, ex => ex == "update");
+            Assert.Contains(CommandCatalog.ServerExamples, ex => ex == "serve");
+            Assert.Contains(CommandCatalog.ServerExamples, ex => ex == "serve --status");
+            Assert.DoesNotContain(CommandCatalog.ServerExamples, ex =>
+                ex.StartsWith("service ", StringComparison.Ordinal));
         }
 
         [Fact]

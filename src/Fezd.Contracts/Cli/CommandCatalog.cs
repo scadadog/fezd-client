@@ -243,16 +243,23 @@ namespace Fezd.Contracts.Cli
             }),
             new CommandInfo("serve", "serve", CommandAvailability.LocalOnly, new[]
             {
-                "Run the HTTPS gateway (TLS + scoped license auth).",
-                "Auto-configures netsh URL ACL, TLS bind, and Windows Firewall",
-                "for the listen port (elevated on first run).",
+                "Ensure the gateway is serving via the Windows service (install/start",
+                "as needed). If already running, follow gateway logs until Ctrl+C.",
+                "Auto-elevates for install/start. UDE needs an interactive desktop session.",
             }, options: new[]
             {
-                new CommandOption("--bind <addr>", "Interface to bind (default 127.0.0.1)."),
-                new CommandOption("--port <n>", "TLS port to listen on (default 8443)."),
+                new CommandOption("--install", "Install the Windows service only (does not start)."),
+                new CommandOption("--uninstall", "Stop (if running) and uninstall the Windows service."),
+                new CommandOption("--start", "Start the Windows service (error if not installed)."),
+                new CommandOption("--stop", "Stop the Windows service."),
+                new CommandOption("--restart", "Stop then start the Windows service."),
+                new CommandOption("--status", "Print whether the Windows service is installed/running."),
+                new CommandOption("--foreground", "Run the HTTPS gateway in this console (debug; no SCM)."),
+                new CommandOption("--bind <addr>", "Interface to bind when using --foreground (default 127.0.0.1)."),
+                new CommandOption("--port <n>", "TLS port when using --foreground (default 8443)."),
                 new CommandOption("--token-store <file>", "Path to the scoped-token store (hashes at rest)."),
-                new CommandOption("--cert <pfx>", "Use a provisioned PFX instead of a self-signed cert."),
-                new CommandOption("--cert-thumbprint <hash>", "Bind an already-installed certificate (e.g. Let's Encrypt)."),
+                new CommandOption("--cert <pfx>", "Use a provisioned PFX instead of a self-signed cert (--foreground)."),
+                new CommandOption("--cert-thumbprint <hash>", "Bind an already-installed certificate (--foreground)."),
                 new CommandOption("--print-pin", "Print the legacy cert pin and exit (does not start the server)."),
             }),
             new CommandInfo("pin", "pin", CommandAvailability.LocalOnly, new[]
@@ -302,13 +309,6 @@ namespace Fezd.Contracts.Cli
                 new CommandOption("--no-pin", "Deprecated no-op (default is no pin)."),
                 new CommandOption("--keep-local-copy", "Also write plaintext to server fezd-client.env (issue)."),
                 new CommandOption("--force", "Replace the token store instead of appending (issue)."),
-            }),
-            new CommandInfo("service", "service <sub>", CommandAvailability.LocalOnly, new[]
-            {
-                "Manage the Windows service that supervises the gateway.",
-                "Subcommands: install | uninstall | start | stop | status.",
-                "Auto-elevates (UAC). The service launches 'fezd-server serve' in the",
-                "active desktop session (UDE licensing needs an interactive session).",
             }),
             new CommandInfo("health", "health", CommandAvailability.Remote, new[]
             {
@@ -391,10 +391,11 @@ namespace Fezd.Contracts.Cli
             "license issue --name remote-client --out ./client.fezd.env",
             "license list",
             "pin",
+            "serve",
+            "serve --status",
+            "serve --restart",
+            "serve --foreground",
             "serve --print-pin",
-            "service install",
-            "service start",
-            "service status",
             "update token --set <github-pat>",
             "update",
         };
@@ -428,6 +429,9 @@ namespace Fezd.Contracts.Cli
         public static bool IsHostOnlyVerb(string nameOrAlias)
         {
             if (string.Equals(nameOrAlias, "provision", System.StringComparison.OrdinalIgnoreCase))
+                return true;
+            // Removed from help; still rejected on fezd-client / accepted as deprecated on server.
+            if (string.Equals(nameOrAlias, "service", System.StringComparison.OrdinalIgnoreCase))
                 return true;
             CommandInfo cmd = Find(nameOrAlias);
             return cmd != null && cmd.Availability == CommandAvailability.LocalOnly;

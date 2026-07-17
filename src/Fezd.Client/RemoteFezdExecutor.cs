@@ -136,6 +136,23 @@ namespace Fezd.Client
             return result;
         }
 
+        /// <summary>
+        /// Request cancel for a queued or running deploy session
+        /// (<c>POST /api/v1/sessions/{id}/cancel</c>).
+        /// </summary>
+        public SessionStatusDto CancelSession(string sessionId)
+        {
+            if (string.IsNullOrWhiteSpace(sessionId))
+                throw new RemoteCommsException("Session id is required.", FezdExitCodes.UsageError);
+
+            using (HttpResponseMessage resp = Send(HttpMethod.Post,
+                $"/api/v1/sessions/{Uri.EscapeDataString(sessionId.Trim())}/cancel",
+                new StringContent(string.Empty), auth: true))
+            {
+                return ReadJson(resp, FezdJsonContext.Default.SessionStatusDto);
+            }
+        }
+
         private JobResultDto FollowSession(string sessionId)
         {
             long cursor = 0;

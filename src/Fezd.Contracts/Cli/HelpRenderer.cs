@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace Fezd.Contracts.Cli
@@ -41,17 +42,14 @@ namespace Fezd.Contracts.Cli
             {
                 if (!cmd.IsAvailableIn(remoteMode))
                     continue;
-                AppendEntry(lines, cmd.Display, cmd.DetailLines);
+                AppendEntry(lines, cmd.Display, ComposeDetailLines(cmd, remoteMode));
             }
 
             lines.Add("");
             lines.Add("GLOBAL OPTIONS:");
             foreach (GlobalOption opt in CommandCatalog.GlobalOptions)
             {
-                bool available = remoteMode
-                    ? opt.Availability != CommandAvailability.LocalOnly
-                    : opt.Availability != CommandAvailability.Remote;
-                if (!available)
+                if (!opt.IsAvailableIn(remoteMode))
                     continue;
                 AppendEntry(lines, opt.Display, new[] { opt.Detail });
             }
@@ -69,6 +67,27 @@ namespace Fezd.Contracts.Cli
             lines.Add("  " + meta.Website + "  |  " + meta.Email);
 
             return string.Join("\n", lines);
+        }
+
+        /// <summary>
+        /// Detail lines plus a mode-filtered Options summary derived from
+        /// <see cref="CommandInfo.Options"/> (inserted before any Safety: block).
+        /// </summary>
+        public static string[] ComposeDetailLines(CommandInfo cmd, bool remoteMode)
+        {
+            var details = new List<string>(cmd.DetailLines ?? new string[0]);
+            CommandOption[] available = cmd.OptionsFor(remoteMode).ToArray();
+            if (available.Length == 0)
+                return details.ToArray();
+
+            string[] optLines = CommandCatalog.FormatOptionsSummary(available);
+            int safetyIdx = details.FindIndex(l =>
+                l != null && l.TrimStart().StartsWith("Safety:", System.StringComparison.Ordinal));
+            if (safetyIdx >= 0)
+                details.InsertRange(safetyIdx, optLines);
+            else
+                details.AddRange(optLines);
+            return details.ToArray();
         }
 
         /// <summary>The `platforms` reference table.</summary>

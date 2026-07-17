@@ -7,7 +7,7 @@
     Keep this in sync with CHANGELOG.md.
   -->
   <PropertyGroup>
-    <FezdVersion>2.2.2</FezdVersion>
+    <FezdVersion>2.2.3</FezdVersion>
     <Version>$(FezdVersion)</Version>
     <AssemblyVersion>$(FezdVersion).0</AssemblyVersion>
     <FileVersion>$(FezdVersion).0</FileVersion>

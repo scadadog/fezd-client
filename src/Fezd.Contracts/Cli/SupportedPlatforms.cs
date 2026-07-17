@@ -1,11 +1,10 @@
 namespace Fezd.Contracts.Cli
 {
     /// <summary>
-    /// Controller families FEZD can build/deploy to. FEZD drives EcoStruxure
-    /// Control Expert through the UDE broker, so the effective support set is
-    /// "whatever the installed Control Expert edition/version supports". This is
-    /// the reference list surfaced by `fezd platforms` and the docs. Lives in the
-    /// shared contracts so the Windows and Linux binaries render it identically.
+    /// Controller families FEZD can build/deploy to. The Windows gateway drives
+    /// EcoStruxure Control Expert, so the effective support set is whatever the
+    /// installed Control Expert edition/version supports. Surfaced by
+    /// <c>platforms</c> / <c>plcs</c> on both fezd-server and fezd-client.
     /// </summary>
     public static class SupportedPlatforms
     {
@@ -64,7 +63,7 @@ namespace Fezd.Contracts.Cli
 
         /// <summary>Human-readable support note shown alongside the list.</summary>
         public const string SupportNote =
-            "FEZD deploys through EcoStruxure Control Expert via the UDE broker. Actual availability " +
+            "FEZD deploys through EcoStruxure Control Expert on the Windows gateway. Actual availability " +
             "depends on the installed Control Expert edition (S/L/XL/XLS) and version, and on the " +
             "connection driver. FEZD's default driver is Modbus/TCP over Ethernet (TCPIP, port 502).";
     }

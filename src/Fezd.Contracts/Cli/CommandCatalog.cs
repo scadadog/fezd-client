@@ -229,6 +229,15 @@ namespace Fezd.Contracts.Cli
                 "Legacy: print the TLS leaf pin for direct self-signed clients only.",
                 "Not part of licensing — prefer public CA + FEZD_TOKEN.",
             }),
+            new CommandInfo("cert", "cert refresh", CommandAvailability.LocalOnly, new[]
+            {
+                "Pick up a win-acme / LocalMachine\\My cert for service.hostname,",
+                "write tls.certThumbprint, and rebind HTTP.SYS sslcert. Run elevated",
+                "after issuing or renewing Let's Encrypt (hook from win-acme post-renew).",
+            }, options: new[]
+            {
+                new CommandOption("--hostname <host>", "Override service.hostname for the lookup."),
+            }),
             new CommandInfo("setup", "setup", CommandAvailability.LocalOnly, new[]
             {
                 "Bootstrap the gateway: hostname (required for FEZD_URL), bind/port,",

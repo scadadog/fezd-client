@@ -1,9 +1,7 @@
 namespace Fezd.Contracts.Cli
 {
     /// <summary>
-    /// Controller families FEZD can build/deploy to. The Windows gateway drives
-    /// EcoStruxure Control Expert, so the effective support set is whatever the
-    /// installed Control Expert edition/version supports. Surfaced by
+    /// Controller families FEZD can build/deploy to. Surfaced by
     /// <c>platforms</c> / <c>plcs</c> on both fezd-server and fezd-client.
     /// </summary>
     public static class SupportedPlatforms
@@ -56,15 +54,20 @@ namespace Fezd.Contracts.Cli
             new Platform
             {
                 Family = "PLC Simulator",
-                Prefixes = "(fezd deploy --simulator)",
+                Prefixes = "(deploy --simulator)",
                 Notes = "Offline test target; no hardware required."
             },
         };
 
-        /// <summary>Human-readable support note shown alongside the list.</summary>
+        /// <summary>Support note for fezd-server <c>platforms</c>.</summary>
         public const string SupportNote =
-            "FEZD deploys through EcoStruxure Control Expert on the Windows gateway. Actual availability " +
-            "depends on the installed Control Expert edition (S/L/XL/XLS) and version, and on the " +
-            "connection driver. FEZD's default driver is Modbus/TCP over Ethernet (TCPIP, port 502).";
+            "The Windows gateway hosts the PLC toolchain. Actual availability depends on the " +
+            "installed automation software edition and version, and on the connection driver. " +
+            "FEZD's default driver is Modbus/TCP over Ethernet (TCPIP, port 502).";
+
+        /// <summary>Support note for fezd-client <c>platforms</c> (no vendor tooling branding).</summary>
+        public const string ClientSupportNote =
+            "fezd-client uploads projects to a licensed FEZD gateway over HTTPS. Controller " +
+            "support depends on the gateway host. For CI, prefer deploy --simulator (no field hardware).";
     }
 }

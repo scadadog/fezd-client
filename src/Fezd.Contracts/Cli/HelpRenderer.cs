@@ -27,10 +27,10 @@ namespace Fezd.Contracts.Cli
             string app = remoteMode ? ClientAppName : ServerAppName;
             var lines = new List<string>
             {
-                "FEZD - " + CommandCatalog.Tagline,
+                "FEZD — " + (remoteMode ? CommandCatalog.ClientTagline : CommandCatalog.ServerTagline),
                 remoteMode
-                    ? "  (fezd-client — PLC Simulator for Copia Actions)"
-                    : "  (fezd-server — Windows host with UDE / Control Expert)",
+                    ? "  Remote client (fezd-client). Jobs run on a licensed FEZD gateway."
+                    : "  Windows host (fezd-server) with UDE / Control Expert.",
                 "",
                 "USAGE:",
                 "  " + app + " <command> [options]",
@@ -75,7 +75,7 @@ namespace Fezd.Contracts.Cli
         /// </summary>
         public static string[] ComposeDetailLines(CommandInfo cmd, bool remoteMode)
         {
-            var details = new List<string>(cmd.DetailLines ?? new string[0]);
+            var details = new List<string>(cmd.DetailLinesFor(remoteMode));
             CommandOption[] available = cmd.OptionsFor(remoteMode).ToArray();
             if (available.Length == 0)
                 return details.ToArray();
@@ -91,12 +91,14 @@ namespace Fezd.Contracts.Cli
         }
 
         /// <summary>The `platforms` reference table.</summary>
-        public static string RenderPlatforms()
+        public static string RenderPlatforms(bool remoteMode = false)
         {
             var lines = new List<string>
             {
                 "",
-                "  Controller families supported by FEZD",
+                remoteMode
+                    ? "  Controller families the FEZD gateway can target"
+                    : "  Controller families supported by FEZD",
                 "  =====================================",
             };
 
@@ -108,7 +110,10 @@ namespace Fezd.Contracts.Cli
                 lines.Add("");
             }
 
-            foreach (string line in WrapText(SupportedPlatforms.SupportNote, 74))
+            string note = remoteMode
+                ? SupportedPlatforms.ClientSupportNote
+                : SupportedPlatforms.SupportNote;
+            foreach (string line in WrapText(note, 74))
                 lines.Add("   " + line);
             lines.Add("");
 
@@ -140,12 +145,12 @@ namespace Fezd.Contracts.Cli
             if (remoteMode)
             {
                 sb.AppendLine("   Remote client (fezd-client)");
-                sb.AppendLine("   PLC Simulator for Copia Actions");
+                sb.AppendLine("   " + CommandCatalog.ClientTagline);
             }
             else
             {
                 sb.AppendLine("   Windows server (fezd-server)");
-                sb.AppendLine("   EcoStruxure Control Expert build/deploy automation");
+                sb.AppendLine("   " + CommandCatalog.ServerTagline);
             }
             sb.AppendLine("  ==================================================");
             sb.AppendLine($"   Version .... {meta.Version}");

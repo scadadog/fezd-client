@@ -38,7 +38,7 @@ namespace Fezd.Remote
             }
             if (command == "platforms" || command == "plcs")
             {
-                Console.WriteLine(HelpRenderer.RenderPlatforms());
+                Console.WriteLine(HelpRenderer.RenderPlatforms(remoteMode: true));
                 return FezdExitCodes.Ok;
             }
             if (IsHelpRequest(command, cl))

@@ -161,6 +161,8 @@ namespace Fezd.Contracts.Tests
                 o => o.Summary != null && o.Summary.IndexOf("FEZD_APP_PASSWORD", StringComparison.Ordinal) >= 0);
             Assert.DoesNotContain("via the UDE broker", HelpRenderer.RenderPlatforms());
             Assert.Contains("Windows gateway", HelpRenderer.RenderPlatforms());
+            Assert.DoesNotContain("EcoStruxure", HelpRenderer.RenderPlatforms(remoteMode: true));
+            Assert.Contains("deploy --simulator", HelpRenderer.RenderPlatforms(remoteMode: true));
         }
 
         [Fact]
@@ -187,7 +189,9 @@ namespace Fezd.Contracts.Tests
                 ex.StartsWith("setup --hostname", StringComparison.Ordinal));
             Assert.DoesNotContain(CommandCatalog.ServerExamples, ex => ex.Contains("0.0.0.0"));
             Assert.Contains(CommandCatalog.ClientExamples, ex =>
-                ex.StartsWith("health ", StringComparison.Ordinal));
+                ex.StartsWith("ping ", StringComparison.Ordinal));
+            Assert.Contains(CommandCatalog.ClientExamples, ex =>
+                ex.Contains("--simulator"));
             Assert.Contains(CommandCatalog.ClientExamples, ex =>
                 ex.StartsWith("cancel ", StringComparison.Ordinal));
             Assert.DoesNotContain(CommandCatalog.ClientExamples, ex =>
@@ -217,7 +221,11 @@ namespace Fezd.Contracts.Tests
             Assert.Contains(".zef", about);
             Assert.DoesNotContain("Schneider Electric", about);
             Assert.DoesNotContain("Control Expert", about);
+            Assert.DoesNotContain("EcoStruxure", about);
+            Assert.DoesNotContain("EcoStruxure", client);
             Assert.Contains("PLC Simulator for Copia Actions", client);
+            Assert.Contains("Upload a .zef to the FEZD gateway", client);
+            Assert.Contains("--simulator", client);
         }
 
         [Fact]

@@ -4,6 +4,31 @@ Notable changes to **fezd-client**.
 
 ## [Unreleased]
 
+## [2.3.3] - 2026-07-17
+
+### Fixed
+
+- `ping` / remote verbs accept a `.fezd.env` path as a positional
+  (`fezd-client ping ./client.fezd.env`) in addition to `--connection`.
+- Clearer errors when `--connection` has no path, or the file lacks `FEZD_URL`.
+- Connection file parser accepts `export KEY=`, UTF-8/UTF-16 BOM, and strips
+  zero-width characters that broke key matching.
+
+### Changed
+
+- Client help/about lead with **PLC Simulator for Copia Actions** (no EcoStruxure
+  tagline). Remote command copy clarifies gateway upload; examples prefer
+  `ping` and `deploy --simulator`.
+- `platforms` client note avoids vendor tooling branding.
+
+## [2.3.2] - 2026-07-17
+
+### Changed
+
+- Version bump for release packaging.
+
+## [2.3.1] - 2026-07-16
+
 ### Changed
 
 - Non-loopback gateways no longer require `--pin` / `FEZD_PIN`. Credentials are

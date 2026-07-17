@@ -45,9 +45,10 @@ namespace Fezd.Contracts.Cli
     /// <summary>
     /// One verb in the shared command catalog. <see cref="Display"/> is the help
     /// column label (e.g. "deploy &lt;zef&gt;"); <see cref="DetailLines"/> are the
-    /// exact help lines rendered after the name column. Structured
-    /// <see cref="Options"/> are appended (filtered by mode) so help cannot drift
-    /// from the option list.
+    /// exact help lines rendered after the name column. Optional
+    /// <see cref="RemoteDetailLines"/> override copy for fezd-client.
+    /// Structured <see cref="Options"/> are appended (filtered by mode) so help
+    /// cannot drift from the option list.
     /// </summary>
     public sealed class CommandInfo
     {
@@ -56,6 +57,7 @@ namespace Fezd.Contracts.Cli
         public string[] Aliases { get; }
         public CommandAvailability Availability { get; }
         public string[] DetailLines { get; }
+        public string[] RemoteDetailLines { get; }
         public CommandOption[] Options { get; }
 
         public CommandInfo(
@@ -64,15 +66,22 @@ namespace Fezd.Contracts.Cli
             CommandAvailability availability,
             string[] detailLines,
             string[] aliases = null,
-            CommandOption[] options = null)
+            CommandOption[] options = null,
+            string[] remoteDetailLines = null)
         {
             Name = name;
             Display = display;
             Availability = availability;
             DetailLines = detailLines ?? new string[0];
+            RemoteDetailLines = remoteDetailLines;
             Aliases = aliases ?? new string[0];
             Options = options ?? new CommandOption[0];
         }
+
+        public string[] DetailLinesFor(bool remoteMode) =>
+            remoteMode && RemoteDetailLines != null && RemoteDetailLines.Length > 0
+                ? RemoteDetailLines
+                : DetailLines;
 
         public bool IsAvailableIn(bool remoteMode) =>
             remoteMode
@@ -110,7 +119,14 @@ namespace Fezd.Contracts.Cli
     /// </summary>
     public static class CommandCatalog
     {
-        public const string Tagline = "EcoStruxure Control Expert build/deploy automation";
+        /// <summary>fezd-server help / about lead line.</summary>
+        public const string ServerTagline = "Windows FEZ Dispenser gateway";
+
+        /// <summary>fezd-client help / about lead line (public marketing).</summary>
+        public const string ClientTagline = "PLC Simulator for Copia Actions";
+
+        /// <summary>Legacy alias; prefer <see cref="ServerTagline"/> / <see cref="ClientTagline"/>.</summary>
+        public const string Tagline = ServerTagline;
 
         public static readonly IReadOnlyList<CommandInfo> Commands = new List<CommandInfo>
         {
@@ -152,6 +168,10 @@ namespace Fezd.Contracts.Cli
                 new CommandOption("--stu", "Save a .stu after building."),
                 new CommandOption("--app-password <pwd>", "Project application password (or set FEZD_APP_PASSWORD). Applied before build when required."),
                 new CommandOption("--app-password-old <pwd>", "Current password when changing to a new one (rare; rotation only)."),
+            }, remoteDetailLines: new[]
+            {
+                "Upload a .zef to the FEZD gateway and rebuild there.",
+                "Requires --connection (or FEZD_URL + FEZD_TOKEN).",
             }),
             new CommandInfo("deploy", "deploy <zef>", CommandAvailability.Both, new[]
             {
@@ -175,6 +195,13 @@ namespace Fezd.Contracts.Cli
                 new CommandOption("--force", "Stop a running PLC / close an open project / release target connection and proceed."),
                 new CommandOption("--app-password <pwd>", "Project application password (or set FEZD_APP_PASSWORD). Applied before build when required."),
                 new CommandOption("--app-password-old <pwd>", "Current password when changing to a new one (rare; rotation only)."),
+            }, remoteDetailLines: new[]
+            {
+                "Upload a .zef to the FEZD gateway; build and download to sim or PLC.",
+                "Prefer --simulator for CI (no field hardware).",
+                "Safety: the gateway aborts if the PLC is in RUN, the target is",
+                "already reserved, or a project is already open. Use --force to",
+                "stop a running PLC / close an open project and proceed.",
             }),
             new CommandInfo("disconnect", "disconnect", CommandAvailability.LocalOnly, new[]
             {
@@ -201,6 +228,10 @@ namespace Fezd.Contracts.Cli
                 new CommandOption("--build / --no-build", "Build before export (default --build)."),
                 new CommandOption("--app-password <pwd>", "Project application password (or set FEZD_APP_PASSWORD). Applied before build when required."),
                 new CommandOption("--app-password-old <pwd>", "Current password when changing to a new one (rare; rotation only)."),
+            }, remoteDetailLines: new[]
+            {
+                "Upload a .zef to the FEZD gateway; build and download .STU / .STA.",
+                "Requires --connection (or FEZD_URL + FEZD_TOKEN).",
             }),
             new CommandInfo("inspect", "inspect <project>", CommandAvailability.LocalOnly, new[]
             {
@@ -281,7 +312,7 @@ namespace Fezd.Contracts.Cli
             }),
             new CommandInfo("health", "health", CommandAvailability.Remote, new[]
             {
-                "Check gateway reachability: TCP (best-effort), TLS trust, bearer auth,",
+                "Check gateway reachability: TLS trust, bearer auth,",
                 "server version, and granted scopes. Aliases: ping, remote.",
                 "Prefer --connection <file>; or --remote/--token.",
             }, aliases: new[] { "ping", "remote" }),
@@ -292,8 +323,15 @@ namespace Fezd.Contracts.Cli
             new CommandInfo("platforms", "platforms", CommandAvailability.Both, new[]
             {
                 "List supported Modicon controller families.",
-            }, aliases: new[] { "plcs" }),
+            }, aliases: new[] { "plcs" }, remoteDetailLines: new[]
+            {
+                "List controller families the FEZD gateway can target.",
+            }),
             new CommandInfo("about", "about", CommandAvailability.Both, new[]
+            {
+                "Show SCADADOG attribution, version, and licensing information.",
+                "Also: fezd-server --help | -h | -? | help | ?",
+            }, remoteDetailLines: new[]
             {
                 "Show SCADADOG attribution, version, and licensing information.",
                 "Also: fezd-client --help | -h | -? | help | ?",
@@ -348,10 +386,11 @@ namespace Fezd.Contracts.Cli
         /// <summary>Example args after the executable name (fezd-client help).</summary>
         public static readonly IReadOnlyList<string> ClientExamples = new List<string>
         {
-            "health --connection ./client.fezd.env",
-            "deploy project.zef --connection ./client.fezd.env --run",
-            "build project.zef --connection ./client.fezd.env",
-            "export project.zef --connection ./client.fezd.env --stu",
+            "ping --connection ./client.fezd.env",
+            "deploy project.zef --connection ./client.fezd.env --simulator --run",
+            "deploy project.zef --connection ./client.fezd.env --target 192.168.1.10 --run",
+            "build project.zef --connection ./client.fezd.env --stu --out ./artifacts",
+            "export project.zef --connection ./client.fezd.env --stu --out ./artifacts",
             "cancel <session-id> --connection ./client.fezd.env",
         };
 

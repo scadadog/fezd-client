@@ -168,11 +168,21 @@ namespace Fezd.Remote
             string url = null;
             string token = null;
             string pin = null;
+            string connectionPathUsed = null;
+
+            if (cl.HasFlag("connection") && string.IsNullOrEmpty(cl.GetOption("connection")))
+            {
+                throw new RemoteCommsException(
+                    "Missing path for --connection. Example: fezd-client ping --connection ./client.fezd.env",
+                    FezdExitCodes.UsageError);
+            }
 
             string connectionPath = cl.GetOption("connection")
-                ?? Environment.GetEnvironmentVariable("FEZD_CONNECTION");
+                ?? Environment.GetEnvironmentVariable("FEZD_CONNECTION")
+                ?? InferConnectionPath(cl);
             if (!string.IsNullOrWhiteSpace(connectionPath))
             {
+                connectionPathUsed = connectionPath;
                 ConnectionFile conn = ConnectionFile.Parse(connectionPath);
                 if (!string.IsNullOrEmpty(conn.Url))
                     url = conn.Url;
@@ -205,9 +215,19 @@ namespace Fezd.Remote
             string caCert = cl.GetOption(new[] { "ca-cert", "cacert" });
 
             if (string.IsNullOrEmpty(url))
+            {
+                if (!string.IsNullOrEmpty(connectionPathUsed))
+                {
+                    throw new RemoteCommsException(
+                        "Connection file '" + connectionPathUsed + "' has no FEZD_URL=... line. " +
+                        "Expected FEZD_URL=https://fezd.scadadog.com (and FEZD_TOKEN=...).",
+                        FezdExitCodes.UsageError);
+                }
                 throw new RemoteCommsException(
-                    "Missing gateway URL. Pass --connection <file>, --remote <https url>, or set FEZD_URL.",
+                    "Missing gateway URL. Pass --connection <file>, --remote <https url>, or set FEZD_URL. " +
+                    "Example: fezd-client ping --connection ./client.fezd.env",
                     FezdExitCodes.UsageError);
+            }
             if (!Uri.TryCreate(url, UriKind.Absolute, out Uri baseUrl) ||
                 (baseUrl.Scheme != Uri.UriSchemeHttps && baseUrl.Scheme != Uri.UriSchemeHttp))
                 throw new RemoteCommsException($"Invalid gateway URL: '{url}'.", FezdExitCodes.UsageError);
@@ -233,6 +253,21 @@ namespace Fezd.Remote
                 NoProxy = cl.HasFlag("no-proxy"),
                 Emit = (level, msg) => Emit(level, msg)
             };
+        }
+
+        /// <summary>
+        /// Accept <c>fezd-client ping ./client.fezd.env</c> (path as positional) in addition
+        /// to <c>--connection</c>, which is a common mistake from the license-file comment.
+        /// </summary>
+        private static string InferConnectionPath(CommandLine cl)
+        {
+            for (int i = 1; i < cl.Positionals.Count; i++)
+            {
+                string candidate = cl.Positionals[i];
+                if (ConnectionFile.LooksLikeConnectionPath(candidate))
+                    return candidate.Trim().Trim('"').Trim('\'');
+            }
+            return null;
         }
 
         private static void Emit(string level, string message)

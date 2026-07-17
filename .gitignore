@@ -1,0 +1,17 @@
+# Build output
+bin/
+obj/
+*.user
+dist/
+publish/
+
+# NuGet
+packages/
+.nuget/
+
+# OS
+.DS_Store
+
+# Local connection files / secrets
+*.fezd.env
+*.env

@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net48;net8.0</TargetFrameworks>
+    <AssemblyName>fezd.client</AssemblyName>
+    <RootNamespace>Fezd.Client</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <Description>FEZD remote client: RemoteFezdExecutor over the pinned-TLS gateway API. Shared by the Windows CLI (--remote) and the Linux Native AOT client.</Description>
+  </PropertyGroup>
+
+  <!-- Keep the net8 build trim/AOT-safe so Fezd.Remote can publish Native AOT. -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0'">
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsTrimmable>true</IsTrimmable>
+  </PropertyGroup>
+  <!-- During Native AOT publish, build only the net8.0 slice of this project. -->
+  <PropertyGroup Condition="'$(PublishAot)' == 'true'">
+    <TargetFrameworks>net8.0</TargetFrameworks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Fezd.Contracts\Fezd.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+    <Reference Include="System.Net.Http" />
+  </ItemGroup>
+
+</Project>

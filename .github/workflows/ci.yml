@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feature/**"]
+  pull_request:
+
+jobs:
+  test:
+    name: Contracts + Client
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Test
+        run: |
+          dotnet test tests/Fezd.Contracts.Tests/Fezd.Contracts.Tests.csproj -c Release --verbosity minimal
+          dotnet test tests/Fezd.Client.Tests/Fezd.Client.Tests.csproj -c Release --verbosity minimal

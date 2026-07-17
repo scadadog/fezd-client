@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- netstandard2.0 so the exact same DTOs, executor seam, command catalog,
+         and help renderer are shared by the net48 Windows build and the net8
+         (Native AOT) Linux remote client with zero code drift. -->
+    <TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
+    <AssemblyName>fezd.contracts</AssemblyName>
+    <RootNamespace>Fezd.Contracts</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <!-- Version and shared company/product metadata live in Directory.Build.props. -->
+    <Description>FEZD contracts: shared DTOs, executor seam, command catalog, and help renderer.</Description>
+  </PropertyGroup>
+
+  <!-- net8.0 build is AOT/trim-safe for Fezd.Remote; netstandard2.0 stays for net48. -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0'">
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsTrimmable>true</IsTrimmable>
+  </PropertyGroup>
+  <!-- During Native AOT publish, build only the net8.0 slice of this project. -->
+  <PropertyGroup Condition="'$(PublishAot)' == 'true'">
+    <TargetFrameworks>net8.0</TargetFrameworks>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <!-- Source-generated JSON (no runtime reflection) so the Linux Native AOT
+         build stays trim/AOT-safe; the net48 server reuses the same context. -->
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,240 @@
+name: Release
+
+# On every push to main: determine the next SemVer from Directory.Build.props
+# (auto-bump patch if that tag already exists), tag it, build Native AOT
+# fezd-client for linux-x64 / osx-arm64 / win-x64, and publish a GitHub Release.
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: fezd-client-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    if: ${{ !contains(github.event.head_commit.message || '', '[skip ci]') }}
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.ver.outputs.tag }}
+      version: ${{ steps.ver.outputs.version }}
+      should_release: ${{ steps.ver.outputs.should_release }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve next version and tag
+        id: ver
+        run: |
+          set -euo pipefail
+          props_version="$(grep -oE '<FezdVersion>[^<]+</FezdVersion>' Directory.Build.props | sed -E 's/<\/?FezdVersion>//g')"
+          if [[ ! "$props_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-].*)?$ ]]; then
+            echo "::error::Invalid FezdVersion '$props_version' in Directory.Build.props"
+            exit 1
+          fi
+
+          # Strip any pre-release suffix for bumping (keep core MAJOR.MINOR.PATCH).
+          core="${props_version%%-*}"
+          IFS=. read -r major minor patch <<<"$core"
+          version="$core"
+          while git rev-parse "refs/tags/v${version}" >/dev/null 2>&1 \
+             || gh release view "v${version}" >/dev/null 2>&1; do
+            patch=$((patch + 1))
+            version="${major}.${minor}.${patch}"
+          done
+
+          tag="v${version}"
+          echo "props_version=$props_version"
+          echo "release_version=$version"
+          echo "tag=$tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "should_release=true" >> "$GITHUB_OUTPUT"
+
+          if [[ "$version" != "$props_version" ]]; then
+            sed -i -E "s|<FezdVersion>[^<]+</FezdVersion>|<FezdVersion>${version}</FezdVersion>|" Directory.Build.props
+            echo "Bumped FezdVersion ${props_version} → ${version}"
+          fi
+
+          {
+            echo "## fezd-client ${tag}"
+            echo
+            echo "Automated release from \`main\` (\`${GITHUB_SHA:0:7}\`)."
+            echo
+            echo "Assets: \`fezd-client-linux-x64\`, \`fezd-client-osx-arm64\`, \`fezd-client-win-x64.zip\`."
+            echo
+            echo "A license / connection file from SCADADOG is required to use these binaries."
+            echo "Request beta access: info@scadadog.com"
+          } > release-notes.md
+
+      - name: Commit version bump and push tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="${{ steps.ver.outputs.version }}"
+          tag="${{ steps.ver.outputs.tag }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if ! git diff --quiet -- Directory.Build.props; then
+            git add Directory.Build.props
+            git commit -m "chore: release ${tag} [skip ci]"
+          fi
+
+          # Point the tag at HEAD (includes any version bump commit).
+          git tag -a "$tag" -m "fezd-client ${tag}"
+          git push origin HEAD:main
+          git push origin "$tag"
+
+      - name: Upload release notes
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: release-notes.md
+
+  build-linux-client:
+    needs: prepare
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Publish Linux fezd-client (Native AOT)
+        run: |
+          dotnet publish src/Fezd.Remote/Fezd.Remote.csproj \
+            -c Release -f net8.0 -r linux-x64 \
+            -p:PublishAot=true --self-contained \
+            -o publish/linux-x64
+          mv publish/linux-x64/fezd-client fezd-client-linux-x64
+          chmod +x fezd-client-linux-x64
+          ./fezd-client-linux-x64 --version
+
+      - name: Upload Linux client
+        uses: actions/upload-artifact@v4
+        with:
+          name: fezd-client-linux-x64
+          path: fezd-client-linux-x64
+
+  build-macos-client:
+    needs: prepare
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: macos-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Publish macOS fezd-client (Native AOT)
+        run: |
+          dotnet publish src/Fezd.Remote/Fezd.Remote.csproj \
+            -c Release -f net8.0 -r osx-arm64 \
+            -p:PublishAot=true --self-contained \
+            -o publish/osx-arm64
+          mv publish/osx-arm64/fezd-client fezd-client-osx-arm64
+          chmod +x fezd-client-osx-arm64
+          ./fezd-client-osx-arm64 --version
+
+      - name: Upload macOS client
+        uses: actions/upload-artifact@v4
+        with:
+          name: fezd-client-osx-arm64
+          path: fezd-client-osx-arm64
+
+  build-windows-client:
+    needs: prepare
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: windows-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Publish Windows fezd-client (Native AOT)
+        shell: pwsh
+        run: |
+          dotnet publish src/Fezd.Remote/Fezd.Remote.csproj `
+            -c Release -f net8.0 -r win-x64 `
+            -p:PublishAot=true --self-contained `
+            -o publish/win-client
+          New-Item -ItemType Directory -Force -Path dist/client-win-x64 | Out-Null
+          Copy-Item publish/win-client/fezd-client.exe dist/client-win-x64/
+          Compress-Archive -Path "dist/client-win-x64/*" -DestinationPath dist/fezd-client-win-x64.zip -Force
+          & dist/client-win-x64/fezd-client.exe --version
+
+      - name: Upload Windows client
+        uses: actions/upload-artifact@v4
+        with:
+          name: fezd-client-win-x64
+          path: dist/fezd-client-win-x64.zip
+
+  release:
+    needs: [prepare, build-linux-client, build-macos-client, build-windows-client]
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Assemble checksums
+        run: |
+          mkdir -p release
+          cp artifacts/fezd-client-linux-x64/fezd-client-linux-x64 release/
+          cp artifacts/fezd-client-osx-arm64/fezd-client-osx-arm64 release/
+          cp artifacts/fezd-client-win-x64/fezd-client-win-x64.zip release/
+          cd release
+          sha256sum \
+            fezd-client-win-x64.zip \
+            fezd-client-linux-x64 \
+            fezd-client-osx-arm64 \
+            > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ needs.prepare.outputs.tag }}"
+          gh release create "$tag" \
+            --title "fezd-client $tag" \
+            --notes-file artifacts/release-notes/release-notes.md \
+            --verify-tag \
+            release/fezd-client-win-x64.zip \
+            release/fezd-client-linux-x64 \
+            release/fezd-client-osx-arm64 \
+            release/SHA256SUMS.txt

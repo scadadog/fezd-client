@@ -1,0 +1,332 @@
+using System;
+using System.IO;
+using System.Net;
+using Fezd.Client;
+using Fezd.Contracts;
+using Fezd.Contracts.Cli;
+
+namespace Fezd.Remote
+{
+    /// <summary>
+    /// Remote-mode verb handlers. Each builds a request DTO from the parsed
+    /// command line and runs it through <see cref="RemoteFezdExecutor"/> against the
+    /// gateway named by <c>--connection</c> / <c>--remote</c> / <c>FEZD_URL</c>.
+    /// </summary>
+    internal static class RemoteCommands
+    {
+        public static int Ping(CommandLine cl)
+        {
+            using (var exec = new RemoteFezdExecutor(BuildOptions(cl)))
+            {
+                RemoteCheckResult r = exec.Check();
+                Console.WriteLine();
+                Console.WriteLine($"  Remote check: {r.Endpoint}");
+                Console.WriteLine("  " + new string('-', 50));
+                Line("TCP connect", r.TcpOk);
+                Line("TLS handshake", r.TlsOk);
+                Line("Certificate pin", r.PinOk);
+                Line("Bearer auth (whoami)", r.AuthOk);
+                if (!string.IsNullOrEmpty(r.ServerVersion))
+                    Console.WriteLine($"         server version : {r.ServerVersion}");
+                if (r.Scopes != null && r.Scopes.Count > 0)
+                    Console.WriteLine($"         granted scopes : {string.Join(", ", r.Scopes)}");
+                Console.WriteLine();
+
+                if (r.Ok)
+                {
+                    Console.WriteLine("Remote gateway reachable and authorized.");
+                    return FezdExitCodes.Ok;
+                }
+                Console.Error.WriteLine("ERROR: " + (r.Detail ?? "Remote check failed."));
+                return FezdExitCodes.ConnectivityError;
+            }
+        }
+
+        public static int Doctor(CommandLine cl)
+        {
+            var options = new DoctorOptionsDto
+            {
+                Simulator = cl.HasFlag("simulator", "sim"),
+                TargetAddress = cl.GetOption(new[] { "target", "address" }),
+                Port = cl.GetInt("port", 502),
+                ConnectTimeoutMs = cl.GetInt("timeout", 3000),
+                TestProjectPath = cl.GetOption(new[] { "test-project", "test-zef", "test" }),
+                Deep = cl.HasFlag("deep"),
+                AppPassword = AppPassword(cl),
+                AppPasswordOld = cl.GetOption("app-password-old", string.Empty)
+            };
+
+            using (var exec = new RemoteFezdExecutor(BuildOptions(cl)))
+            {
+                DoctorReportDto report = exec.Doctor(options);
+                PrintReport(report);
+                if (!report.Healthy)
+                {
+                    Console.Error.WriteLine($"Doctor found {report.FailCount} blocking issue(s).");
+                    return FezdExitCodes.DoctorFailed;
+                }
+                Console.WriteLine(report.WarnCount > 0
+                    ? $"Environment usable with {report.WarnCount} warning(s)."
+                    : "Environment healthy. All checks passed.");
+                return FezdExitCodes.Ok;
+            }
+        }
+
+        public static int Build(CommandLine cl)
+        {
+            string zef = RequireZef(cl);
+            bool saveStu = cl.HasFlag("stu", "save-stu");
+            string outDir = cl.GetOption(new[] { "out", "output" });
+            string stuPath = saveStu
+                ? Path.Combine(string.IsNullOrEmpty(outDir) ? Directory.GetCurrentDirectory() : outDir,
+                    Path.GetFileNameWithoutExtension(zef) + ".stu")
+                : null;
+
+            using (var exec = new RemoteFezdExecutor(BuildOptions(cl)))
+                return Finish(exec.Build(new BuildRequestDto
+                {
+                    ZefPath = zef,
+                    OutputStuPath = stuPath,
+                    SaveStu = saveStu,
+                    AppPassword = AppPassword(cl),
+                    AppPasswordOld = cl.GetOption("app-password-old", string.Empty)
+                }));
+        }
+
+        public static int Deploy(CommandLine cl)
+        {
+            string zef = RequireZef(cl);
+            bool simulator = cl.HasFlag("simulator", "sim");
+            string targetAddress = cl.GetOption(new[] { "target", "address" });
+            if (simulator && string.IsNullOrWhiteSpace(targetAddress))
+                targetAddress = "127.0.0.1";
+            var req = new DeployRequestDto
+            {
+                ZefPath = zef,
+                TargetAddress = targetAddress,
+                Port = cl.GetInt("port", 502),
+                Driver = cl.GetOption("driver", "TCPIP"),
+                Mode = ParseMode(cl.GetOption("mode")),
+                Target = simulator ? TargetKindDto.Simulator : TargetKindDto.Plc,
+                BuildBeforeDeploy = cl.GetSwitch("build") ?? true,
+                Download = cl.GetSwitch("download") ?? true,
+                Run = cl.GetSwitch("run") ?? false,
+                Force = cl.HasFlag("force", "f"),
+                AppPassword = AppPassword(cl),
+                AppPasswordOld = cl.GetOption("app-password-old", string.Empty),
+                OutputDir = cl.GetOption(new[] { "out", "output" }),
+                SaveStu = cl.GetSwitch("save-stu") ?? cl.HasFlag("stu"),
+                SaveSta = cl.GetSwitch("save-sta") ?? cl.HasFlag("sta")
+            };
+
+            RemoteOptions opts = BuildOptions(cl);
+            Console.WriteLine($"Deploying {zef} to {(simulator ? "SIMULATOR" : req.TargetAddress)} " +
+                              $"(driver={req.Driver}, mode={req.Mode})...");
+            using (var exec = new RemoteFezdExecutor(opts))
+                return Finish(exec.Deploy(req));
+        }
+
+        public static int Export(CommandLine cl)
+        {
+            string zef = RequireZef(cl);
+            bool saveStu = cl.HasFlag("stu", "save-stu");
+            bool saveSta = cl.HasFlag("sta", "save-sta");
+            if (!saveStu && !saveSta)
+            {
+                Console.Error.WriteLine("ERROR: Nothing to export. Specify --stu and/or --sta.");
+                return FezdExitCodes.UsageError;
+            }
+            var req = new ExportRequestDto
+            {
+                ZefPath = zef,
+                OutputDir = cl.GetOption(new[] { "out", "output" }),
+                SaveStu = saveStu,
+                SaveSta = saveSta,
+                Build = cl.GetSwitch("build") ?? true,
+                AppPassword = AppPassword(cl),
+                AppPasswordOld = cl.GetOption("app-password-old", string.Empty)
+            };
+            using (var exec = new RemoteFezdExecutor(BuildOptions(cl)))
+                return Finish(exec.Export(req));
+        }
+
+        // ---- helpers ----
+
+        private static int Finish(JobResultDto result)
+        {
+            if (!result.Success && !string.IsNullOrEmpty(result.Message))
+            {
+                Console.Error.WriteLine("ERROR: " + result.Message);
+                if (result.ExitCode == FezdExitCodes.BuildError &&
+                    result.Message.IndexOf("app-password", StringComparison.OrdinalIgnoreCase) < 0 &&
+                    result.Message.IndexOf("Protected Engineering Link", StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    Console.Error.WriteLine(
+                        "HINT: If this project needs an application password, re-run with " +
+                        "--app-password <pwd> (or set FEZD_APP_PASSWORD).");
+                }
+            }
+            return result.ExitCode;
+        }
+
+        /// <summary>
+        /// Resolve remote options: connection file / FEZD_CONNECTION first, then env,
+        /// then CLI flags. Non-loopback hosts require --pin or --ca-cert (fail-closed).
+        /// </summary>
+        internal static RemoteOptions BuildOptions(CommandLine cl) => RequireRemote(cl);
+
+        internal static RemoteOptions RequireRemote(CommandLine cl)
+        {
+            string url = null;
+            string token = null;
+            string pin = null;
+
+            string connectionPath = cl.GetOption("connection")
+                ?? Environment.GetEnvironmentVariable("FEZD_CONNECTION");
+            if (!string.IsNullOrWhiteSpace(connectionPath))
+            {
+                ConnectionFile conn = ConnectionFile.Parse(connectionPath);
+                if (!string.IsNullOrEmpty(conn.Url))
+                    url = conn.Url;
+                if (!string.IsNullOrEmpty(conn.Token))
+                    token = conn.Token;
+                if (!string.IsNullOrEmpty(conn.PinSha256))
+                    pin = conn.PinSha256;
+            }
+
+            string envUrl = Environment.GetEnvironmentVariable("FEZD_URL");
+            if (!string.IsNullOrWhiteSpace(envUrl))
+                url = envUrl;
+            string envToken = Environment.GetEnvironmentVariable("FEZD_TOKEN")
+                ?? Environment.GetEnvironmentVariable("FEZD_LICENSE");
+            if (!string.IsNullOrWhiteSpace(envToken))
+                token = envToken;
+            string envPin = Environment.GetEnvironmentVariable("FEZD_PIN");
+            if (!string.IsNullOrWhiteSpace(envPin))
+                pin = envPin;
+
+            string remoteFlag = cl.GetOption("remote");
+            if (!string.IsNullOrEmpty(remoteFlag))
+                url = remoteFlag;
+            string tokenFlag = cl.GetOption("token") ?? cl.GetOption("license");
+            if (!string.IsNullOrEmpty(tokenFlag))
+                token = tokenFlag;
+            string pinFlag = cl.GetOption("pin");
+            if (!string.IsNullOrEmpty(pinFlag))
+                pin = pinFlag;
+            string caCert = cl.GetOption(new[] { "ca-cert", "cacert" });
+
+            if (string.IsNullOrEmpty(url))
+                throw new RemoteCommsException(
+                    "Missing gateway URL. Pass --connection <file>, --remote <https url>, or set FEZD_URL.",
+                    FezdExitCodes.UsageError);
+            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri baseUrl) ||
+                (baseUrl.Scheme != Uri.UriSchemeHttps && baseUrl.Scheme != Uri.UriSchemeHttp))
+                throw new RemoteCommsException($"Invalid gateway URL: '{url}'.", FezdExitCodes.UsageError);
+
+            if (!IsLoopbackHost(baseUrl) &&
+                string.IsNullOrEmpty(pin) &&
+                string.IsNullOrEmpty(caCert))
+            {
+                throw new RemoteCommsException(
+                    "Non-loopback gateway requires --pin <sha256> or --ca-cert <file> " +
+                    "(or FEZD_PIN in the connection file / environment).",
+                    FezdExitCodes.UsageError);
+            }
+
+            return new RemoteOptions
+            {
+                BaseUrl = baseUrl,
+                Token = token,
+                PinSha256 = pin,
+                CaCertPath = caCert,
+                TimeoutSeconds = cl.GetInt("remote-timeout", 300),
+                TraceHttp = cl.HasFlag("debug") || cl.HasFlag("trace"),
+                Emit = (level, msg) => Emit(level, msg)
+            };
+        }
+
+        private static bool IsLoopbackHost(Uri baseUrl)
+        {
+            if (baseUrl == null)
+                return false;
+            if (baseUrl.IsLoopback)
+                return true;
+            string host = baseUrl.DnsSafeHost;
+            if (string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (IPAddress.TryParse(host, out IPAddress ip))
+                return IPAddress.IsLoopback(ip);
+            return false;
+        }
+
+        private static void Emit(string level, string message)
+        {
+            string tag = (level ?? "info").ToUpperInvariant();
+            if (string.Equals(level, "error", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(level, "warn", StringComparison.OrdinalIgnoreCase))
+                Console.Error.WriteLine($"[{tag}] {message}");
+            else
+                Console.WriteLine($"[{tag}] {message}");
+        }
+
+        private static string AppPassword(CommandLine cl) =>
+            cl.GetOption("app-password") ?? Environment.GetEnvironmentVariable("FEZD_APP_PASSWORD");
+
+        private static ConnectionModeDto ParseMode(string mode)
+        {
+            if (string.IsNullOrWhiteSpace(mode))
+                return ConnectionModeDto.Primary;
+            switch (mode.Trim().ToLowerInvariant())
+            {
+                case "secondary":
+                case "backup":
+                case "standby":
+                    return ConnectionModeDto.Secondary;
+                default:
+                    return ConnectionModeDto.Primary;
+            }
+        }
+
+        private static string RequireZef(CommandLine cl)
+        {
+            if (cl.Positionals.Count < 2)
+                throw new RemoteCommsException(
+                    "Missing project file. Usage: fezd-client <command> <zef-file> --connection <file> [options].",
+                    FezdExitCodes.UsageError);
+            return cl.Positionals[1];
+        }
+
+        private static void PrintReport(DoctorReportDto report)
+        {
+            Console.WriteLine();
+            Console.WriteLine("  FEZD DOCTOR REPORT (remote)");
+            Console.WriteLine("  " + new string('-', 60));
+            foreach (CheckResultDto r in report.Results)
+            {
+                Console.WriteLine($"  [{Tag(r.Status)}] {r.Name}");
+                if (!string.IsNullOrEmpty(r.Detail))
+                    Console.WriteLine($"         {r.Detail}");
+                if (r.Status == CheckStatusDto.Fail && !string.IsNullOrEmpty(r.Remedy))
+                    Console.WriteLine($"         remedy: {r.Remedy}");
+            }
+            Console.WriteLine("  " + new string('-', 60));
+            Console.WriteLine($"  pass={report.PassCount} warn={report.WarnCount} fail={report.FailCount} skip={report.SkipCount}");
+            Console.WriteLine();
+        }
+
+        private static string Tag(CheckStatusDto s)
+        {
+            switch (s)
+            {
+                case CheckStatusDto.Pass: return "PASS";
+                case CheckStatusDto.Warn: return "WARN";
+                case CheckStatusDto.Fail: return "FAIL";
+                default: return "SKIP";
+            }
+        }
+
+        private static void Line(string label, bool ok) =>
+            Console.WriteLine($"  [ {(ok ? "OK " : "FAIL")} ] {label}");
+    }
+}

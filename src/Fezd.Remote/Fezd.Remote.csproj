@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>fezd-client</AssemblyName>
+    <RootNamespace>Fezd.Remote</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+
+    <!-- Native AOT: pass -p:PublishAot=true at publish time on the target OS
+         (linux-x64, win-x64, osx-arm64). AOT cannot cross-compile. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <IsTrimmable>true</IsTrimmable>
+    <StripSymbols>true</StripSymbols>
+    <Description>FEZD client (Native AOT): remote-control utility for a Windows fezd-server gateway. No UDE or Control Expert.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Fezd.Contracts\Fezd.Contracts.csproj" />
+    <ProjectReference Include="..\Fezd.Client\Fezd.Client.csproj" />
+  </ItemGroup>
+
+</Project>

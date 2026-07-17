@@ -1,0 +1,31 @@
+<Project>
+
+  <!--
+    Single source of truth for the product version and shared assembly metadata
+    across every project in the solution. Bump FezdVersion here (one line) for a
+    release; AssemblyVersion/FileVersion/InformationalVersion are derived from it.
+    Keep this in sync with CHANGELOG.md.
+  -->
+  <PropertyGroup>
+    <FezdVersion>2.2.1</FezdVersion>
+    <Version>$(FezdVersion)</Version>
+    <AssemblyVersion>$(FezdVersion).0</AssemblyVersion>
+    <FileVersion>$(FezdVersion).0</FileVersion>
+    <InformationalVersion>$(FezdVersion)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+
+    <Company>SCADADOG LLC</Company>
+    <Authors>SCADADOG LLC</Authors>
+    <Product>FEZD — FEZ Dispenser</Product>
+    <Copyright>Copyright © 2026 SCADADOG LLC. All rights reserved.</Copyright>
+  </PropertyGroup>
+
+  <!--
+    Enables building the net48 TFM of Fezd.Client on any OS via NuGet reference
+    assemblies. PrivateAssets=all keeps it out of shipped output.
+  -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

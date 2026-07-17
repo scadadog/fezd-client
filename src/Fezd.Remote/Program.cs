@@ -62,6 +62,11 @@ namespace Fezd.Remote
                 CommandInfo info = CommandCatalog.Find(command);
                 string verb = info != null ? info.Name : command;
 
+                if (verb == "update")
+                    return SelfUpdate.RunUpdate(meta.Version);
+
+                SelfUpdate.MaybeWarnIfOutdated(meta.Version);
+
                 switch (verb)
                 {
                     case "health":

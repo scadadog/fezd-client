@@ -34,12 +34,24 @@ namespace Fezd.Contracts.Tests
         [Fact]
         public void ClientSurface_IncludesRemoteOps()
         {
-            foreach (string name in new[] { "health", "build", "deploy", "export", "cancel" })
+            foreach (string name in new[] { "health", "build", "deploy", "export", "cancel", "update" })
             {
                 CommandInfo cmd = CommandCatalog.Find(name);
                 Assert.NotNull(cmd);
                 Assert.True(cmd.IsAvailableIn(remoteMode: true), name);
             }
+        }
+
+        [Fact]
+        public void Update_IsAvailableOnBothSurfaces()
+        {
+            CommandInfo update = CommandCatalog.Find("update");
+            Assert.NotNull(update);
+            Assert.Equal(CommandAvailability.Both, update.Availability);
+            Assert.True(update.IsAvailableIn(remoteMode: true));
+            Assert.True(update.IsAvailableIn(remoteMode: false));
+            Assert.Contains("fezd-client", string.Join(" ", update.DetailLinesFor(remoteMode: true)));
+            Assert.Contains("PAT", string.Join(" ", update.DetailLinesFor(remoteMode: false)));
         }
 
         [Fact]
@@ -85,6 +97,8 @@ namespace Fezd.Contracts.Tests
             Assert.DoesNotContain("\n  inspect", client);
             Assert.DoesNotContain("\n  doctor", client);
             Assert.Contains("\n  health", client);
+            Assert.Contains("\n  update", client);
+            Assert.Contains("\n  update", server);
 
             Assert.Contains("fezd-server", server);
             Assert.Contains("\n  serve", server);
@@ -183,7 +197,12 @@ namespace Fezd.Contracts.Tests
         {
             Assert.NotEmpty(CommandCatalog.ClientExamples);
             Assert.All(CommandCatalog.ClientExamples, ex =>
-                Assert.Contains("--connection", ex));
+            {
+                if (ex == "update")
+                    return;
+                Assert.Contains("--connection", ex);
+            });
+            Assert.Contains(CommandCatalog.ClientExamples, ex => ex == "update");
             Assert.DoesNotContain(CommandCatalog.ServerExamples, ex => ex.Contains("--remote"));
             Assert.Contains(CommandCatalog.ServerExamples, ex =>
                 ex.StartsWith("setup --hostname", StringComparison.Ordinal));
@@ -196,6 +215,7 @@ namespace Fezd.Contracts.Tests
                 ex.StartsWith("cancel ", StringComparison.Ordinal));
             Assert.DoesNotContain(CommandCatalog.ClientExamples, ex =>
                 ex.StartsWith("doctor ", StringComparison.Ordinal));
+            Assert.Contains(CommandCatalog.ServerExamples, ex => ex == "update");
         }
 
         [Fact]

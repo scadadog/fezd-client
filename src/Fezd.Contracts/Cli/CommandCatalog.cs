@@ -320,6 +320,20 @@ namespace Fezd.Contracts.Cli
             {
                 "Cancel a queued or running deploy session on the gateway.",
             }),
+            new CommandInfo("update", "update", CommandAvailability.Both, new[]
+            {
+                "Download and install the latest fezd-server from GitHub Releases.",
+                "Subcommands: token --set <pat> | token --clear.",
+                "Requires a fine-grained GitHub PAT (Contents: Read on fezd-server).",
+            }, options: new[]
+            {
+                new CommandOption("--thin", "Force the net48 thin drop (default when running Framework).", CommandAvailability.LocalOnly),
+                new CommandOption("--self-contained", "Force the net8 self-contained drop.", CommandAvailability.LocalOnly),
+            }, remoteDetailLines: new[]
+            {
+                "Replace this binary with the latest fezd-client release for this OS/arch.",
+                "Suggested when a newer version is available.",
+            }),
             new CommandInfo("platforms", "platforms", CommandAvailability.Both, new[]
             {
                 "List supported Modicon controller families.",
@@ -381,6 +395,8 @@ namespace Fezd.Contracts.Cli
             "service install",
             "service start",
             "service status",
+            "update token --set <github-pat>",
+            "update",
         };
 
         /// <summary>Example args after the executable name (fezd-client help).</summary>
@@ -392,6 +408,7 @@ namespace Fezd.Contracts.Cli
             "build project.zef --connection ./client.fezd.env --stu --out ./artifacts",
             "export project.zef --connection ./client.fezd.env --stu --out ./artifacts",
             "cancel <session-id> --connection ./client.fezd.env",
+            "update",
         };
 
         /// <summary>Looks up a verb by name or alias (case-insensitive).</summary>

@@ -29,6 +29,7 @@
     <!-- Source-generated JSON (no runtime reflection) so the Linux Native AOT
          build stays trim/AOT-safe; the net48 server reuses the same context. -->
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <PackageReference Include="System.Net.Http" Version="4.3.4" />
   </ItemGroup>
 
 </Project>

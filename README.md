@@ -62,6 +62,18 @@ Pre-built binaries are published automatically on every push to `main`
 
 You still need a license file from SCADADOG to run them against a gateway.
 
+### Staying up to date
+
+`fezd-client` checks GitHub Releases in the background (cached ~24h). When a
+newer version is available it prints a notice to stderr and suggests:
+
+```bash
+fezd-client update
+```
+
+That downloads the matching asset, verifies `SHA256SUMS.txt`, and replaces the
+running binary. Skip the check with `FEZD_SKIP_UPDATE_CHECK=1`.
+
 ## What FEZD is doing (simulation & hardware)
 
 FEZD is a **PLC simulator for Copia Actions**: your pipeline uploads a `.zef`,

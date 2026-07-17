@@ -25,6 +25,7 @@ namespace Fezd.Remote
             {
                 Console.WriteLine("FEZD " + meta.Version + " (fezd-client)");
                 Console.WriteLine(meta.Copyright);
+                Console.WriteLine(meta.Company + "  |  " + meta.Website);
                 return FezdExitCodes.Ok;
             }
 
@@ -40,10 +41,13 @@ namespace Fezd.Remote
                 Console.WriteLine(HelpRenderer.RenderPlatforms());
                 return FezdExitCodes.Ok;
             }
-            if (command == null || command == "help" || cl.HasFlag("help", "h"))
+            if (IsHelpRequest(command, cl))
             {
                 Console.WriteLine(HelpRenderer.RenderUsage(meta, remoteMode: true));
-                return command == null && !cl.HasFlag("help", "h") ? FezdExitCodes.UsageError : FezdExitCodes.Ok;
+                // Bare invocation (no args) is a usage error; explicit help/? is OK.
+                return command == null && !cl.HasFlag("help", "h") && !cl.HasFlag("?")
+                    ? FezdExitCodes.UsageError
+                    : FezdExitCodes.Ok;
             }
 
             if (CommandCatalog.IsHostOnlyVerb(command))
@@ -60,10 +64,8 @@ namespace Fezd.Remote
 
                 switch (verb)
                 {
-                    case "ping":
-                        return RemoteCommands.Ping(cl);
-                    case "doctor":
-                        return RemoteCommands.Doctor(cl);
+                    case "health":
+                        return RemoteCommands.Health(cl);
                     case "build":
                         return RemoteCommands.Build(cl);
                     case "deploy":
@@ -90,6 +92,13 @@ namespace Fezd.Remote
                 return FezdExitCodes.Error;
             }
         }
+
+        private static bool IsHelpRequest(string command, CommandLine cl) =>
+            command == null
+            || command == "help"
+            || command == "?"
+            || cl.HasFlag("help", "h")
+            || cl.HasFlag("?");
 
         private static AppMetadata Metadata()
         {

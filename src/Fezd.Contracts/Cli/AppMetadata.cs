@@ -10,9 +10,9 @@ namespace Fezd.Contracts.Cli
         public string Product { get; set; } = "FEZD — FEZ Dispenser";
         public string Version { get; set; } = "1.0.0";
         public string Company { get; set; } = "SCADADOG LLC";
-        public string Copyright { get; set; } = "Copyright © 2026 SCADADOG LLC. All rights reserved.";
+        public string Copyright { get; set; } = "Copyright © 2024–2026 SCADADOG LLC. All rights reserved.";
         public string Description { get; set; } = string.Empty;
-        public string Website { get; set; } = "https://scadadog.com";
+        public string Website { get; set; } = "https://www.scadadog.com";
         public string Email { get; set; } = "info@scadadog.com";
     }
 }

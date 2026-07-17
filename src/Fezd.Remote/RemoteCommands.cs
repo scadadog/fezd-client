@@ -13,13 +13,13 @@ namespace Fezd.Remote
     /// </summary>
     internal static class RemoteCommands
     {
-        public static int Ping(CommandLine cl)
+        public static int Health(CommandLine cl)
         {
             using (var exec = new RemoteFezdExecutor(BuildOptions(cl)))
             {
                 RemoteCheckResult r = exec.Check();
                 Console.WriteLine();
-                Console.WriteLine($"  Remote check: {r.Endpoint}");
+                Console.WriteLine($"  Gateway health: {r.Endpoint}");
                 Console.WriteLine("  " + new string('-', 50));
                 Line("TCP connect", r.TcpOk);
                 Line("TLS handshake", r.TlsOk);
@@ -33,47 +33,11 @@ namespace Fezd.Remote
 
                 if (r.Ok)
                 {
-                    Console.WriteLine("Remote gateway reachable and authorized.");
+                    Console.WriteLine("Gateway reachable and authorized.");
                     return FezdExitCodes.Ok;
                 }
-                Console.Error.WriteLine("ERROR: " + (r.Detail ?? "Remote check failed."));
+                Console.Error.WriteLine("ERROR: " + (r.Detail ?? "Gateway health check failed."));
                 return FezdExitCodes.ConnectivityError;
-            }
-        }
-
-        public static int Doctor(CommandLine cl)
-        {
-            RemoteCliGuards.EnsureDoctorFlagsSupported(cl);
-
-            var options = new DoctorOptionsDto
-            {
-                Simulator = cl.HasFlag("simulator", "sim"),
-                TargetAddress = cl.GetOption(new[] { "target", "address" }),
-                Port = cl.GetInt("port", 502),
-                ConnectTimeoutMs = cl.GetInt("timeout", 3000),
-                TestProjectPath = cl.GetOption(new[] { "test-project", "test-zef", "test" }),
-                Deep = cl.HasFlag("deep")
-            };
-
-            if (!string.IsNullOrEmpty(options.TestProjectPath))
-            {
-                Console.WriteLine(
-                    "Note: --test-project is a path on the gateway host (not uploaded from this machine).");
-            }
-
-            using (var exec = new RemoteFezdExecutor(BuildOptions(cl)))
-            {
-                DoctorReportDto report = exec.Doctor(options);
-                PrintReport(report);
-                if (!report.Healthy)
-                {
-                    Console.Error.WriteLine($"Doctor found {report.FailCount} blocking issue(s).");
-                    return FezdExitCodes.DoctorFailed;
-                }
-                Console.WriteLine(report.WarnCount > 0
-                    ? $"Environment usable with {report.WarnCount} warning(s)."
-                    : "Environment healthy. All checks passed.");
-                return FezdExitCodes.Ok;
             }
         }
 
@@ -290,35 +254,6 @@ namespace Fezd.Remote
                     "Missing project file. Usage: fezd-client <command> <zef-file> --connection <file> [options].",
                     FezdExitCodes.UsageError);
             return cl.Positionals[1];
-        }
-
-        private static void PrintReport(DoctorReportDto report)
-        {
-            Console.WriteLine();
-            Console.WriteLine("  FEZD DOCTOR REPORT (remote)");
-            Console.WriteLine("  " + new string('-', 60));
-            foreach (CheckResultDto r in report.Results)
-            {
-                Console.WriteLine($"  [{Tag(r.Status)}] {r.Name}");
-                if (!string.IsNullOrEmpty(r.Detail))
-                    Console.WriteLine($"         {r.Detail}");
-                if (r.Status == CheckStatusDto.Fail && !string.IsNullOrEmpty(r.Remedy))
-                    Console.WriteLine($"         remedy: {r.Remedy}");
-            }
-            Console.WriteLine("  " + new string('-', 60));
-            Console.WriteLine($"  pass={report.PassCount} warn={report.WarnCount} fail={report.FailCount} skip={report.SkipCount}");
-            Console.WriteLine();
-        }
-
-        private static string Tag(CheckStatusDto s)
-        {
-            switch (s)
-            {
-                case CheckStatusDto.Pass: return "PASS";
-                case CheckStatusDto.Warn: return "WARN";
-                case CheckStatusDto.Fail: return "FAIL";
-                default: return "SKIP";
-            }
         }
 
         private static void Line(string label, bool ok) =>

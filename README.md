@@ -1,19 +1,38 @@
 # fezd-client
 
-**fezd-client** is the remote client for [FEZD](https://scadadog.com) — FEZ Dispenser from SCADADOG.
+**PLC Simulator for Copia Actions** — from [SCADADOG](https://www.scadadog.com).
 
-Are you trying to go from legacy PLC programming to **industrial DevOps**?
+`fezd-client` is the remote client for **FEZD** (FEZ Dispenser). Use it from
+**Copia Actions** (and GitHub Actions) to **build and simulate** Modicon PLC
+projects on a managed SCADADOG gateway — without standing up your own
+hardware-in-the-loop rack.
 
-Version control platforms like Copia help teams manage PLC project history, but CI pipelines still need a place to **compile, simulate, and exercise** code against Modicon targets before production. Full hardware-in-the-loop racks are expensive to stand up and operate. FEZD provides managed simulation and hardware pipeline capacity that fits beside **Copia Actions** and **GitHub Actions**, so you can build, test, and iterate — including AI-assisted workflows — until a project is ready for a production environment.
-
-This repository ships **fezd-client only**. The Windows gateway is separate. The client does not embed engineering-host software.
+This repository ships **fezd-client only**. The Windows gateway is separate.
 
 This product is in **beta**.
+
+## Prerequisites
+
+| Requirement | Today |
+|---|---|
+| SCADADOG **license / connection file** (`.fezd.env`) | Required |
+| Project as a **`.zef`** archive | Required |
+| Copia Actions or GitHub Actions runner (or any Linux/macOS/Windows host) that can run `fezd-client` | Required |
+
+Provide a `.zef` file on every `build` / `deploy` / `export`. Binaries alone are
+not enough without a connection file.
+
+### Coming soon
+
+| Capability | Status |
+|---|---|
+| Accept **`.stu`** / **`.sta`** project files | Future version |
+| Compile / simulate **from repository source files** (no pre-exported archive) | Future version |
 
 ## License required
 
 You cannot use `fezd-client` without a **license / connection file** (`.fezd.env`)
-issued for your environment. Binaries alone are not enough.
+issued for your environment.
 
 ### Request beta access
 
@@ -22,12 +41,12 @@ and connection file. Include:
 
 - Your name / organization
 - Target OS (Linux, macOS, or Windows)
-- A short note on the intended use
+- A short note on the intended use (typically Copia Actions)
 
 We will reply with next steps and a connection file to use with:
 
 ```bash
-fezd-client ping --connection ./your-license.fezd.env
+fezd-client health --connection ./your-license.fezd.env
 ```
 
 ## Downloads
@@ -45,41 +64,69 @@ You still need a license file from SCADADOG to run them against a gateway.
 
 ## What FEZD is doing (simulation & hardware)
 
-FEZD connects industrial DevOps pipelines to a managed Windows gateway that can compile Modicon PLC projects and exercise them against either:
+FEZD is a **PLC simulator for Copia Actions**: your pipeline uploads a `.zef`,
+and a managed gateway compiles and exercises it against either:
 
 1. **Gateway-hosted PLC simulation** (`--simulator`) — no field hardware required
 2. **Physical Modicon controllers** (`--target <address>`) — when you are ready for hardware
 
-### Simulation environment (Schneider Electric Modicon)
+### Simulation in CI
 
-For CI, the GitHub Actions / Copia runner does **not** run a soft-PLC locally. The runner only runs `fezd-client`. The licensed gateway host:
+For CI, the Copia / GitHub Actions runner does **not** run a soft-PLC locally.
+The runner only runs `fezd-client`. The licensed gateway host:
 
-- Accepts the uploaded project over HTTPS
+- Accepts the uploaded **`.zef`** over HTTPS
 - Compiles/builds the project
-- Exercises it against a **managed simulation environment** for Schneider Electric Modicon PLC workflows
+- Exercises it against a **managed simulation environment** for Modicon PLC workflows
 - Returns artifacts (for example `.stu`) to your CI workspace
 - Wipes gateway-side project and artifact files after the run
 
-This is a practical alternative to standing up expensive hardware-in-the-loop racks just to get compile/sim feedback in pipeline.
-
-Simulation here means: the gateway owns the Modicon-compatible execution environment; your CI job stays thin (install client → authenticate → deploy → collect artifacts). Exact host tooling stays on the gateway and is not part of this public client repo.
+This is a practical alternative to standing up expensive hardware-in-the-loop racks
+just to get compile/sim feedback in pipeline.
 
 ### What happens during a remote run
 
 1. CI authenticates with the connection file (gateway URL + license token + TLS pin).
-2. The project is uploaded over HTTPS.
+2. The **`.zef`** project is uploaded over HTTPS.
 3. The gateway grants an **exclusive session lease** (one active simulation/deploy at a time; others queue).
 4. The project is built and exercised against simulation or hardware.
 5. Artifacts (for example `.stu`) are returned to the CI workspace.
 6. Gateway-side project and artifact files are wiped after the run.
 
-## CI/CD with GitHub Actions and Copia
+## CI/CD with Copia Actions (and GitHub Actions)
+
+**Primary path:** Copia Actions. GitHub Actions works the same way on a Linux runner.
 
 Typical pattern:
 
 1. Store your SCADADOG-issued connection file as a CI secret (never commit it).
 2. Download `fezd-client-linux-x64` from Releases.
-3. `ping` the gateway, then `deploy --simulator` for CI simulation (or `--target` for hardware).
+3. Ensure your workflow has a **`.zef`** project file available.
+4. `health` the gateway, then `deploy --simulator` for CI simulation (or `--target` for hardware).
+
+### Copia Actions
+
+```yaml
+# Example Copia / Linux CI shape — project.zef must be present in the workspace
+steps:
+  - name: Install fezd-client
+    run: |
+      curl -fsSL -o fezd-client \
+        -H "Authorization: Bearer $GH_TOKEN" \
+        -L https://github.com/scadadog/fezd-client/releases/latest/download/fezd-client-linux-x64
+      chmod +x fezd-client
+
+  - name: Health check
+    run: ./fezd-client health --connection "$FEZD_CONNECTION"
+
+  - name: Build and simulate
+    run: |
+      ./fezd-client deploy project.zef \
+        --connection "$FEZD_CONNECTION" \
+        --simulator \
+        --run \
+        --stu --out ./artifacts
+```
 
 ### GitHub Actions
 
@@ -114,8 +161,8 @@ jobs:
         env:
           FEZD_CONNECTION_FILE: ${{ secrets.FEZD_CONNECTION_FILE }}
 
-      - name: Ping gateway
-        run: fezd-client ping --connection "$RUNNER_TEMP/client.fezd.env"
+      - name: Health check
+        run: fezd-client health --connection "$RUNNER_TEMP/client.fezd.env"
 
       - name: Build and simulate
         run: |
@@ -132,32 +179,6 @@ jobs:
           path: artifacts/
 ```
 
-### Copia Actions
-
-Same Linux-runner shape: install `fezd-client-linux-x64`, inject the connection file from your secret store, then `ping` / `deploy`.
-
-```yaml
-# Example Copia / Linux CI shape
-steps:
-  - name: Install fezd-client
-    run: |
-      curl -fsSL -o fezd-client \
-        -H "Authorization: Bearer $GH_TOKEN" \
-        -L https://github.com/scadadog/fezd-client/releases/latest/download/fezd-client-linux-x64
-      chmod +x fezd-client
-
-  - name: Ping gateway
-    run: ./fezd-client ping --connection "$FEZD_CONNECTION"
-
-  - name: Build and simulate
-    run: |
-      ./fezd-client deploy project.zef \
-        --connection "$FEZD_CONNECTION" \
-        --simulator \
-        --run \
-        --stu --out ./artifacts
-```
-
 Hardware path when ready:
 
 ```bash
@@ -166,6 +187,19 @@ fezd-client deploy project.zef \
   --target 192.168.1.10 \
   --run
 ```
+
+If the project requires an application password, set `FEZD_APP_PASSWORD` in the
+environment (preferred in CI) or pass `--app-password`. There is no built-in
+default — omit it when the project does not need one. CLI overrides the
+environment variable when both are set.
+
+## Important
+
+SCADADOG does **not** take ownership of, or liability for, your project files.
+Keep projects under **version control** (or other backed-up storage) to avoid
+loss of changes. This utility is provided for use **at your own risk**.
+
+Run `fezd-client about` for company, licensing, and product information.
 
 ## Supported controllers
 
@@ -221,6 +255,18 @@ Beta **service targets** (not a contractual SLA with credits unless agreed in wr
 - Exit codes from `fezd-client` match gateway outcomes so CI can fail closed on deploy/sim errors.
 - Hard contractual uptime credits are not offered during beta unless specified in a separate agreement.
 
-## Copyright
+## Copyright & contact
 
-Copyright © 2026 SCADADOG LLC. All rights reserved.
+**SCADADOG LLC**  
+Website: [https://www.scadadog.com](https://www.scadadog.com)  
+Email: [info@scadadog.com](mailto:info@scadadog.com)
+
+Copyright © 2024–2026 SCADADOG LLC. All rights reserved.
+
+FEZD is a product of SCADADOG LLC. Use is subject to your SCADADOG license /
+connection agreement. Redistribution of binaries without authorization is not
+permitted.
+
+SCADADOG does not take ownership of, or liability for, your project files.
+Keep projects under version control to avoid loss of changes. This utility is
+provided for use at your own risk.

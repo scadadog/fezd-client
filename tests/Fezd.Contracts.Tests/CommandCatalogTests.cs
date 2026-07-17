@@ -12,7 +12,7 @@ namespace Fezd.Contracts.Tests
         {
             string[] localOnly =
             {
-                "install", "register", "unregister", "disconnect", "inspect",
+                "install", "register", "unregister", "doctor", "disconnect", "inspect",
                 "serve", "setup", "license", "pin", "service"
             };
             foreach (string name in localOnly)
@@ -27,13 +27,14 @@ namespace Fezd.Contracts.Tests
             Assert.True(CommandCatalog.IsHostOnlyVerb("reg"));
             Assert.True(CommandCatalog.IsHostOnlyVerb("provision"));
             Assert.False(CommandCatalog.IsHostOnlyVerb("deploy"));
+            Assert.False(CommandCatalog.IsHostOnlyVerb("health"));
             Assert.False(CommandCatalog.IsHostOnlyVerb("cancel"));
         }
 
         [Fact]
         public void ClientSurface_IncludesRemoteOps()
         {
-            foreach (string name in new[] { "ping", "doctor", "build", "deploy", "export", "cancel" })
+            foreach (string name in new[] { "health", "build", "deploy", "export", "cancel" })
             {
                 CommandInfo cmd = CommandCatalog.Find(name);
                 Assert.NotNull(cmd);
@@ -42,13 +43,15 @@ namespace Fezd.Contracts.Tests
         }
 
         [Fact]
-        public void Ping_IsRemoteOnly()
+        public void Health_IsRemoteOnly_WithPingAlias()
         {
-            CommandInfo ping = CommandCatalog.Find("ping");
-            Assert.NotNull(ping);
-            Assert.Equal(CommandAvailability.Remote, ping.Availability);
-            Assert.True(ping.IsAvailableIn(remoteMode: true));
-            Assert.False(ping.IsAvailableIn(remoteMode: false));
+            CommandInfo health = CommandCatalog.Find("health");
+            Assert.NotNull(health);
+            Assert.Equal(CommandAvailability.Remote, health.Availability);
+            Assert.True(health.IsAvailableIn(remoteMode: true));
+            Assert.False(health.IsAvailableIn(remoteMode: false));
+            Assert.Equal("health", CommandCatalog.Find("ping").Name);
+            Assert.Equal("health", CommandCatalog.Find("remote").Name);
         }
 
         [Fact]
@@ -80,6 +83,8 @@ namespace Fezd.Contracts.Tests
             Assert.DoesNotContain("\n  unregister", client);
             Assert.DoesNotContain("\n  disconnect", client);
             Assert.DoesNotContain("\n  inspect", client);
+            Assert.DoesNotContain("\n  doctor", client);
+            Assert.Contains("\n  health", client);
 
             Assert.Contains("fezd-server", server);
             Assert.Contains("\n  serve", server);
@@ -87,8 +92,10 @@ namespace Fezd.Contracts.Tests
             Assert.Contains("\n  license", server);
             Assert.Contains("\n  disconnect", server);
             Assert.Contains("\n  inspect", server);
+            Assert.Contains("\n  doctor", server);
             Assert.DoesNotContain("\n  provision", server);
             Assert.DoesNotContain("\n  cancel", server);
+            Assert.DoesNotContain("\n  health", server);
         }
 
         [Fact]
@@ -148,8 +155,10 @@ namespace Fezd.Contracts.Tests
             Assert.DoesNotContain("--mode primary|secondary", client);
             Assert.Contains("--mode primary|secondary", server);
             Assert.Contains("--build / --no-build", client);
-            Assert.Contains("--test-project <path>", client);
-            Assert.Contains("gateway environment", client);
+            Assert.Contains("--app-password <pwd>", client);
+            Assert.Contains(
+                CommandCatalog.Find("deploy").Options,
+                o => o.Summary != null && o.Summary.IndexOf("FEZD_APP_PASSWORD", StringComparison.Ordinal) >= 0);
             Assert.DoesNotContain("via the UDE broker", HelpRenderer.RenderPlatforms());
             Assert.Contains("Windows gateway", HelpRenderer.RenderPlatforms());
         }
@@ -178,13 +187,44 @@ namespace Fezd.Contracts.Tests
                 ex.StartsWith("setup --hostname", StringComparison.Ordinal));
             Assert.DoesNotContain(CommandCatalog.ServerExamples, ex => ex.Contains("0.0.0.0"));
             Assert.Contains(CommandCatalog.ClientExamples, ex =>
+                ex.StartsWith("health ", StringComparison.Ordinal));
+            Assert.Contains(CommandCatalog.ClientExamples, ex =>
                 ex.StartsWith("cancel ", StringComparison.Ordinal));
+            Assert.DoesNotContain(CommandCatalog.ClientExamples, ex =>
+                ex.StartsWith("doctor ", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void Help_IncludesScadadogAttributionAndAboutPointer()
+        {
+            var meta = new AppMetadata { Version = "9.9.9", Product = "FEZD" };
+            string client = HelpRenderer.RenderUsage(meta, remoteMode: true);
+            string about = HelpRenderer.RenderAbout(meta, remoteMode: true);
+
+            Assert.Contains("SCADADOG LLC", client);
+            Assert.Contains("https://www.scadadog.com", client);
+            Assert.Contains("info@scadadog.com", client);
+            Assert.Contains("fezd-client about", client);
+            Assert.Contains("SCADADOG LLC", about);
+            Assert.Contains("https://www.scadadog.com", about);
+            Assert.Contains("info@scadadog.com", about);
+            Assert.Contains("Licensing", about);
+            Assert.Contains("2024", about);
+            Assert.Contains("connection file", about);
+            Assert.Contains("version control", about);
+            Assert.Contains("own risk", about);
+            Assert.Contains("PLC Simulator for Copia Actions", about);
+            Assert.Contains(".zef", about);
+            Assert.DoesNotContain("Schneider Electric", about);
+            Assert.DoesNotContain("Control Expert", about);
+            Assert.Contains("PLC Simulator for Copia Actions", client);
         }
 
         [Fact]
         public void Find_ResolvesAliases()
         {
-            Assert.Equal("ping", CommandCatalog.Find("remote").Name);
+            Assert.Equal("health", CommandCatalog.Find("ping").Name);
+            Assert.Equal("health", CommandCatalog.Find("remote").Name);
             Assert.Equal("platforms", CommandCatalog.Find("plcs").Name);
         }
 

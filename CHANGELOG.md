@@ -4,6 +4,25 @@ Notable changes to **fezd-client**.
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-07-16
+
+### Added
+
+- `health` command (aliases: `ping`, `remote`) for gateway reachability checks.
+- Help accepts `?` / `-?` in addition to `help` / `--help` / `-h`.
+- `about` and help footer show SCADADOG LLC attribution
+  (`https://www.scadadog.com`, `info@scadadog.com`, Copyright © 2024–2026).
+
+### Changed
+
+- Marketed as **PLC Simulator for Copia Actions**; README documents `.zef`
+  prerequisite and future `.stu`/`.sta` + repo-source compile support.
+- Client `doctor` removed from the remote surface (host doctor stays on
+  `fezd-server`).
+- Client `about` / README: no liability for project files; keep projects under
+  version control; use at your own risk.
+- Help Options lists and command copy clarify `.zef` is required today.
+
 ## [2.2.3] - 2026-07-16
 
 ### Added

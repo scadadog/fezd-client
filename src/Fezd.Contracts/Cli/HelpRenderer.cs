@@ -29,7 +29,7 @@ namespace Fezd.Contracts.Cli
             {
                 "FEZD - " + CommandCatalog.Tagline,
                 remoteMode
-                    ? "  (fezd-client — remote control only; no UDE / Control Expert)"
+                    ? "  (fezd-client — PLC Simulator for Copia Actions)"
                     : "  (fezd-server — Windows host with UDE / Control Expert)",
                 "",
                 "USAGE:",
@@ -63,8 +63,8 @@ namespace Fezd.Contracts.Cli
                 lines.Add("  " + app + " " + ex);
 
             lines.Add("");
-            lines.Add("  " + ShortLine(meta));
-            lines.Add("  " + meta.Website + "  |  " + meta.Email);
+            foreach (string line in AttributionFooter(meta, remoteMode, app))
+                lines.Add("  " + line);
 
             return string.Join("\n", lines);
         }
@@ -119,6 +119,17 @@ namespace Fezd.Contracts.Cli
         public static string ShortLine(AppMetadata meta) =>
             $"{meta.Product} v{meta.Version} — {meta.Copyright}";
 
+        /// <summary>Attribution lines appended to help / usage.</summary>
+        public static string[] AttributionFooter(AppMetadata meta, bool remoteMode, string appName)
+        {
+            return new[]
+            {
+                ShortLine(meta),
+                meta.Company + "  |  " + meta.Website + "  |  " + meta.Email,
+                "Run '" + appName + " about' for licensing and product information.",
+            };
+        }
+
         /// <summary>The full `about` banner.</summary>
         public static string RenderAbout(AppMetadata meta, bool remoteMode = false)
         {
@@ -127,10 +138,15 @@ namespace Fezd.Contracts.Cli
             sb.AppendLine("  ==================================================");
             sb.AppendLine("   FEZD — FEZ Dispenser");
             if (remoteMode)
+            {
                 sb.AppendLine("   Remote client (fezd-client)");
+                sb.AppendLine("   PLC Simulator for Copia Actions");
+            }
             else
+            {
                 sb.AppendLine("   Windows server (fezd-server)");
-            sb.AppendLine("   EcoStruxure Control Expert build/deploy automation");
+                sb.AppendLine("   EcoStruxure Control Expert build/deploy automation");
+            }
             sb.AppendLine("  ==================================================");
             sb.AppendLine($"   Version .... {meta.Version}");
             sb.AppendLine($"   Company .... {meta.Company}");
@@ -145,8 +161,9 @@ namespace Fezd.Contracts.Cli
             sb.AppendLine();
             if (remoteMode)
             {
-                sb.AppendLine("   fezd-client sends commands to a FEZD gateway over HTTPS.");
-                sb.AppendLine("   A license / connection file is required.");
+                sb.AppendLine("   fezd-client sends .zef projects to a FEZD gateway over HTTPS");
+                sb.AppendLine("   for build and simulation (Copia Actions / CI).");
+                sb.AppendLine("   A SCADADOG license / connection file (.fezd.env) is required.");
                 sb.AppendLine("   Beta access: " + meta.Email);
             }
             else
@@ -155,9 +172,18 @@ namespace Fezd.Contracts.Cli
                 sb.AppendLine("   Control Expert must be installed and licensed on the host.");
             }
             sb.AppendLine();
-            sb.AppendLine("   This product drives, but does not include, Schneider Electric");
-            sb.AppendLine("   EcoStruxure Control Expert, which must be licensed on the");
-            sb.AppendLine("   Windows server host separately.");
+            sb.AppendLine("   Licensing");
+            sb.AppendLine("   ---------");
+            sb.AppendLine("   FEZD is a product of " + meta.Company + ". Use is subject to your");
+            sb.AppendLine("   SCADADOG license / connection agreement. Redistribution of");
+            sb.AppendLine("   binaries without authorization is not permitted.");
+            sb.AppendLine();
+            sb.AppendLine("   Important");
+            sb.AppendLine("   ---------");
+            sb.AppendLine("   SCADADOG does not take ownership of, or liability for, your");
+            sb.AppendLine("   project files. Keep projects under version control (or other");
+            sb.AppendLine("   backed-up storage) to avoid loss of changes. This utility is");
+            sb.AppendLine("   provided for use at your own risk.");
             sb.AppendLine();
             sb.AppendLine($"   Support: {meta.Email}   |   {meta.Website}");
             sb.AppendLine();

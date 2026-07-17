@@ -7,7 +7,7 @@ namespace Fezd.Client
 {
     /// <summary>
     /// Fail-closed checks for remote-client CLI flags that look real but are not
-    /// supported on the gateway sessions/doctor APIs yet.
+    /// supported on the gateway sessions API yet.
     /// </summary>
     public static class RemoteCliGuards
     {
@@ -33,25 +33,6 @@ namespace Fezd.Client
                 throw new RemoteCommsException(
                     "--no-download is not supported on fezd-client deploy sessions " +
                     "(the gateway always downloads). Omit --no-download.",
-                    FezdExitCodes.UsageError);
-            }
-        }
-
-        /// <summary>
-        /// Reject doctor password flags — the remote doctor GET API does not
-        /// accept them (and must not put secrets in the query string).
-        /// </summary>
-        public static void EnsureDoctorFlagsSupported(CommandLine cl)
-        {
-            if (cl == null)
-                throw new ArgumentNullException(nameof(cl));
-
-            if (!string.IsNullOrEmpty(cl.GetOption("app-password")) ||
-                !string.IsNullOrEmpty(cl.GetOption("app-password-old")))
-            {
-                throw new RemoteCommsException(
-                    "Application passwords are not supported on remote doctor yet. " +
-                    "Run doctor without --app-password, or use fezd-server doctor on the gateway host.",
                     FezdExitCodes.UsageError);
             }
         }

@@ -78,22 +78,6 @@ namespace Fezd.Client.Tests
         }
 
         [Fact]
-        public void Doctor_RejectsAppPassword()
-        {
-            CommandLine cl = CommandLine.Parse(new[] { "doctor", "--app-password", "secret" });
-            var ex = Assert.Throws<RemoteCommsException>(() =>
-                RemoteCliGuards.EnsureDoctorFlagsSupported(cl));
-            Assert.Contains("not supported on remote doctor", ex.Message);
-        }
-
-        [Fact]
-        public void Doctor_AllowsWithoutPassword()
-        {
-            CommandLine cl = CommandLine.Parse(new[] { "doctor", "--simulator" });
-            RemoteCliGuards.EnsureDoctorFlagsSupported(cl);
-        }
-
-        [Fact]
         public void Transport_RejectsNonLoopbackHttp()
         {
             var ex = Assert.Throws<RemoteCommsException>(() =>

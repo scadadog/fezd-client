@@ -128,34 +128,34 @@ namespace Fezd.Contracts.Cli
             {
                 "Remove the UDE COM registration (auto-elevates).",
             }, aliases: new[] { "unreg", "uninstall" }),
-            new CommandInfo("doctor", "doctor", CommandAvailability.Both, new[]
+            new CommandInfo("doctor", "doctor", CommandAvailability.LocalOnly, new[]
             {
-                "Validate the gateway environment (OS, Control Expert,",
+                "Validate this Windows host (OS, Control Expert,",
                 "automation broker, license, PLC).",
             }, options: new[]
             {
                 new CommandOption("--simulator", "Validate a simulator deployment rather than a physical PLC."),
-                new CommandOption("--test-project <path>", "Known-good project path on the gateway host (not uploaded from the client)."),
+                new CommandOption("--test-project <path>", "Known-good project for the import/build/save smoke tests."),
                 new CommandOption("--deep", "Run the optional connect/download/run check (touches the target)."),
                 new CommandOption("--target <addr>", "PLC IP for the reachability probe (--deep). Required unless --simulator."),
                 new CommandOption("--port <n>", "PLC TCP port for the reachability probe (default 502)."),
                 new CommandOption("--timeout <ms>", "TCP connect timeout for the reachability probe."),
-                new CommandOption("--app-password <pwd>", "Application password for deep smoke tests (fezd-server only).", CommandAvailability.LocalOnly),
-                new CommandOption("--app-password-old <pwd>", "Current password when rotating (fezd-server only).", CommandAvailability.LocalOnly),
+                new CommandOption("--app-password <pwd>", "Application password for deep smoke tests (or set FEZD_APP_PASSWORD)."),
+                new CommandOption("--app-password-old <pwd>", "Current password when rotating (rare)."),
             }),
             new CommandInfo("build", "build <zef>", CommandAvailability.Both, new[]
             {
-                "Open and rebuild a project.",
+                "Open and rebuild a project (.zef required today).",
             }, options: new[]
             {
                 new CommandOption("--out <dir>", "Directory for the saved .stu."),
                 new CommandOption("--stu", "Save a .stu after building."),
-                new CommandOption("--app-password <pwd>", "Application password for the project (or set FEZD_APP_PASSWORD)."),
+                new CommandOption("--app-password <pwd>", "Project application password (or set FEZD_APP_PASSWORD). Applied before build when required."),
                 new CommandOption("--app-password-old <pwd>", "Current password when changing to a new one (rare; rotation only)."),
             }),
             new CommandInfo("deploy", "deploy <zef>", CommandAvailability.Both, new[]
             {
-                "Build, connect, download to PLC, and run.",
+                "Build, connect, download to PLC, and run (.zef required today).",
                 "Safety: aborts if the PLC is in RUN, the target is",
                 "already reserved, or a project is already open in the",
                 "session. Use --force to stop a running PLC / close an",
@@ -173,7 +173,7 @@ namespace Fezd.Contracts.Cli
                 new CommandOption("--sta", "Save a .sta artifact."),
                 new CommandOption("--out <dir>", "Directory for saved artifacts."),
                 new CommandOption("--force", "Stop a running PLC / close an open project / release target connection and proceed."),
-                new CommandOption("--app-password <pwd>", "Application password for the project (or set FEZD_APP_PASSWORD)."),
+                new CommandOption("--app-password <pwd>", "Project application password (or set FEZD_APP_PASSWORD). Applied before build when required."),
                 new CommandOption("--app-password-old <pwd>", "Current password when changing to a new one (rare; rotation only)."),
             }),
             new CommandInfo("disconnect", "disconnect", CommandAvailability.LocalOnly, new[]
@@ -192,14 +192,14 @@ namespace Fezd.Contracts.Cli
             }),
             new CommandInfo("export", "export <zef>", CommandAvailability.Both, new[]
             {
-                "Build and export .STU / .STA artifacts.",
+                "Build and export .STU / .STA artifacts (.zef required today).",
             }, options: new[]
             {
                 new CommandOption("--stu", "Export a .stu artifact."),
                 new CommandOption("--sta", "Export a .sta artifact."),
                 new CommandOption("--out <dir>", "Directory for exported artifacts."),
                 new CommandOption("--build / --no-build", "Build before export (default --build)."),
-                new CommandOption("--app-password <pwd>", "Application password for the project (or set FEZD_APP_PASSWORD)."),
+                new CommandOption("--app-password <pwd>", "Project application password (or set FEZD_APP_PASSWORD). Applied before build when required."),
                 new CommandOption("--app-password-old <pwd>", "Current password when changing to a new one (rare; rotation only)."),
             }),
             new CommandInfo("inspect", "inspect <project>", CommandAvailability.LocalOnly, new[]
@@ -268,12 +268,12 @@ namespace Fezd.Contracts.Cli
                 "Auto-elevates (UAC). The service launches 'fezd-server serve' in the",
                 "active desktop session (UDE licensing needs an interactive session).",
             }),
-            new CommandInfo("ping", "ping", CommandAvailability.Remote, new[]
+            new CommandInfo("health", "health", CommandAvailability.Remote, new[]
             {
-                "Check a remote gateway: TCP, TLS + cert pin, bearer auth,",
-                "server version, and granted scopes. Alias: 'remote'.",
+                "Check gateway reachability: TCP, TLS + cert pin, bearer auth,",
+                "server version, and granted scopes. Aliases: ping, remote.",
                 "Prefer --connection <file>; or --remote/--token/--pin.",
-            }, aliases: new[] { "remote" }),
+            }, aliases: new[] { "ping", "remote" }),
             new CommandInfo("cancel", "cancel <session-id>", CommandAvailability.Remote, new[]
             {
                 "Cancel a queued or running deploy session on the gateway.",
@@ -284,7 +284,8 @@ namespace Fezd.Contracts.Cli
             }, aliases: new[] { "plcs" }),
             new CommandInfo("about", "about", CommandAvailability.Both, new[]
             {
-                "Show product, version, and copyright information.",
+                "Show SCADADOG attribution, version, and licensing information.",
+                "Also: fezd-client --help | -h | -? | help | ?",
             }),
         };
 
@@ -305,7 +306,7 @@ namespace Fezd.Contracts.Cli
             new GlobalOption("--com-timeout <sec>", "COM session wall-clock limit for build/deploy/export (default 600; 0=off).", CommandAvailability.LocalOnly),
             new GlobalOption("--json | --no-json", "Toggle JSON log file output.", CommandAvailability.LocalOnly),
             new GlobalOption("--version", "Print version."),
-            new GlobalOption("--help, -h", "Show this help."),
+            new GlobalOption("--help, -h, -?", "Show this help (also: help | ?)."),
         };
 
         /// <summary>Example args after the executable name (fezd-server help).</summary>
@@ -335,8 +336,7 @@ namespace Fezd.Contracts.Cli
         /// <summary>Example args after the executable name (fezd-client help).</summary>
         public static readonly IReadOnlyList<string> ClientExamples = new List<string>
         {
-            "ping --connection ./client.fezd.env",
-            "doctor --connection ./client.fezd.env",
+            "health --connection ./client.fezd.env",
             "deploy project.zef --connection ./client.fezd.env --run",
             "build project.zef --connection ./client.fezd.env",
             "export project.zef --connection ./client.fezd.env --stu",

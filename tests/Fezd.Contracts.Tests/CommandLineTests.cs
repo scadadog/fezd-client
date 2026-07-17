@@ -45,5 +45,20 @@ namespace Fezd.Contracts.Tests
             Assert.Equal(8443, CommandLine.Parse(new[] { "--port", "nope" }).GetInt("port", 8443));
             Assert.Equal(8443, CommandLine.Parse(new string[0]).GetInt("port", 8443));
         }
+
+        [Fact]
+        public void Parse_TreatsQuestionMarkAsShortFlag()
+        {
+            CommandLine cl = CommandLine.Parse(new[] { "-?" });
+            Assert.True(cl.HasFlag("?"));
+            Assert.Empty(cl.Positionals);
+        }
+
+        [Fact]
+        public void Parse_TreatsQuestionMarkPositional()
+        {
+            CommandLine cl = CommandLine.Parse(new[] { "?" });
+            Assert.Equal("?", cl.Positionals[0]);
+        }
     }
 }

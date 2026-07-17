@@ -4,6 +4,16 @@ Notable changes to **fezd-client**.
 
 ## [Unreleased]
 
+### Changed
+
+- Non-loopback gateways no longer require `--pin` / `FEZD_PIN`. Credentials are
+  `FEZD_URL` + `FEZD_TOKEN`; TLS uses the OS trust store (Let's Encrypt / corp
+  inspection roots). `--pin` remains as deprecated legacy for direct self-signed.
+- `ping` soft-fails direct TCP so corp HTTP-proxy-only egress still reaches
+  `/healthz`; success no longer requires the TCP rung.
+- System HTTP(S) proxy is honored by default; `--no-proxy` forces direct connect.
+- Large uploads set `ExpectContinue = false` for picky corp proxies.
+
 ## [2.3.0] - 2026-07-16
 
 ### Added

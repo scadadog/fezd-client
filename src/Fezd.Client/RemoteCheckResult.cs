@@ -19,7 +19,10 @@ namespace Fezd.Client
         /// <summary>First failure detail, if any (used for the exit message).</summary>
         public string Detail { get; set; }
 
-        /// <summary>True when every attempted rung passed.</summary>
-        public bool Ok => TcpOk && TlsOk && PinOk && AuthOk;
+        /// <summary>
+        /// True when TLS trust and bearer auth succeeded. TCP is best-effort
+        /// (may fail behind a corp HTTP proxy even when the API works).
+        /// </summary>
+        public bool Ok => TlsOk && PinOk && AuthOk;
     }
 }

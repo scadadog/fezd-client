@@ -86,7 +86,7 @@ just to get compile/sim feedback in pipeline.
 
 ### What happens during a remote run
 
-1. CI authenticates with the connection file (gateway URL + license token + TLS pin).
+1. CI authenticates with the connection file (gateway URL + license token).
 2. The **`.zef`** project is uploaded over HTTPS.
 3. The gateway grants an **exclusive session lease** (one active simulation/deploy at a time; others queue).
 4. The project is built and exercised against simulation or hardware.
@@ -227,7 +227,7 @@ Names identify compatibility targets only. They do not imply affiliation, partne
 
 ## Security & privacy
 
-- Encrypted **in transit** (HTTPS/TLS; certificate pinning via the connection file)
+- Encrypted **in transit** (HTTPS/TLS; OS trust store / public CA; optional legacy pin)
 - Encrypted **at rest** on the gateway
 - Project/artifact wipe after each run (uploaded `.zef` sources and returned `.stu` / related artifacts)
 - **SOC 2 Type 1** in progress

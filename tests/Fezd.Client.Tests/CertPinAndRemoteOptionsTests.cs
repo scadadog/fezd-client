@@ -47,6 +47,18 @@ namespace Fezd.Client.Tests
             });
             Assert.NotNull(exec);
         }
+
+        [Fact]
+        public void Ctor_AcceptsHttpsWithoutPin_SystemCaTrust()
+        {
+            // Corp / public-CA path: no FEZD_PIN; ValidateServerCert accepts SslPolicyErrors.None.
+            using var exec = new RemoteFezdExecutor(new RemoteOptions
+            {
+                BaseUrl = new Uri("https://fezd.scadadog.app/"),
+                Token = "token"
+            });
+            Assert.NotNull(exec);
+        }
     }
 
     public class RemoteCliGuardsTests

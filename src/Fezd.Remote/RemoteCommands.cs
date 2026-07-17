@@ -22,8 +22,7 @@ namespace Fezd.Remote
                 Console.WriteLine($"  Gateway health: {r.Endpoint}");
                 Console.WriteLine("  " + new string('-', 50));
                 Line("TCP connect", r.TcpOk);
-                Line("TLS handshake", r.TlsOk);
-                Line("Certificate pin", r.PinOk);
+                Line("TLS trust", r.TlsOk);
                 Line("Bearer auth (whoami)", r.AuthOk);
                 if (!string.IsNullOrEmpty(r.ServerVersion))
                     Console.WriteLine($"         server version : {r.ServerVersion}");
@@ -157,7 +156,10 @@ namespace Fezd.Remote
 
         /// <summary>
         /// Resolve remote options: connection file / FEZD_CONNECTION first, then env,
-        /// then CLI flags. Non-loopback hosts require --pin or --ca-cert (fail-closed).
+        /// then CLI flags. Non-loopback hosts require HTTPS. Pin / --ca-cert are
+        /// optional: omit them to trust the system CA store (public Let's Encrypt,
+        /// corp TLS-inspection proxies). Keep FEZD_PIN only when pinning a known leaf
+        /// (e.g. self-signed direct path); pinning breaks under TLS inspection.
         /// </summary>
         internal static RemoteOptions BuildOptions(CommandLine cl) => RequireRemote(cl);
 
@@ -212,14 +214,12 @@ namespace Fezd.Remote
 
             RemoteCliGuards.EnsureSecureTransport(baseUrl);
 
-            if (!RemoteCliGuards.IsLoopbackHost(baseUrl) &&
-                string.IsNullOrEmpty(pin) &&
-                string.IsNullOrEmpty(caCert))
+            if (!string.IsNullOrEmpty(pin))
             {
-                throw new RemoteCommsException(
-                    "Non-loopback gateway requires --pin <sha256> or --ca-cert <file> " +
-                    "(or FEZD_PIN in the connection file / environment).",
-                    FezdExitCodes.UsageError);
+                Emit("warn",
+                    "FEZD_PIN/--pin is deprecated legacy TLS pinning. Prefer system CA trust " +
+                    "(public Let's Encrypt or corp proxy root) with FEZD_TOKEN only. " +
+                    "Pinning breaks under TLS inspection.");
             }
 
             return new RemoteOptions
@@ -230,6 +230,7 @@ namespace Fezd.Remote
                 CaCertPath = caCert,
                 TimeoutSeconds = cl.GetInt("remote-timeout", 300),
                 TraceHttp = cl.HasFlag("debug") || cl.HasFlag("trace"),
+                NoProxy = cl.HasFlag("no-proxy"),
                 Emit = (level, msg) => Emit(level, msg)
             };
         }

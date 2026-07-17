@@ -45,13 +45,23 @@ namespace Fezd.Client
             var handler = new HttpClientHandler
             {
                 ServerCertificateCustomValidationCallback = (req, cert, chain, errors) =>
-                    ValidateServerCert(cert, chain, errors)
+                    ValidateServerCert(cert, chain, errors),
+                // Large .zef uploads behind corp proxies often mishandle 100-continue.
+                AllowAutoRedirect = true
             };
+            if (_opts.NoProxy)
+            {
+                handler.UseProxy = false;
+                handler.Proxy = null;
+            }
+            // else: UseProxy defaults true → system / WinHTTP / HTTP_PROXY
+
             _http = new HttpClient(handler)
             {
                 BaseAddress = _opts.BaseUrl,
                 Timeout = TimeSpan.FromSeconds(_opts.TimeoutSeconds <= 0 ? 300 : _opts.TimeoutSeconds)
             };
+            _http.DefaultRequestHeaders.ExpectContinue = false;
         }
 
         // ---- IFezdExecutor ----
@@ -273,7 +283,8 @@ namespace Fezd.Client
         {
             var r = new RemoteCheckResult { Endpoint = _opts.BaseUrl.ToString() };
 
-            // 1) Raw TCP.
+            // 1) Raw TCP (best-effort). Soft-fail: corp networks that only allow
+            // HTTPS via an HTTP proxy will fail direct TCP even when the API works.
             try
             {
                 using (var tcp = new TcpClient())
@@ -286,27 +297,28 @@ namespace Fezd.Client
             }
             catch (Exception ex)
             {
-                r.Detail = "TCP connect failed: " + Innermost(ex).Message;
-                return r;
+                r.TcpOk = false;
+                r.Detail = "TCP connect failed (continuing via HTTP; normal behind a corp proxy): "
+                           + Innermost(ex).Message;
             }
 
-            // 2) TLS handshake + pin (unauthenticated healthz).
+            // 2) TLS + system CA / optional pin (unauthenticated healthz via HttpClient).
             try
             {
                 using (HttpResponseMessage resp = Send(HttpMethod.Get, "/healthz", null, auth: false))
                 {
                     r.TlsOk = true;
-                    r.PinOk = true;
+                    r.PinOk = true; // legacy field: true when TLS trust succeeded
                 }
             }
             catch (RemoteCommsException ex)
             {
-                bool pin = ex.Message.IndexOf("pin", StringComparison.OrdinalIgnoreCase) >= 0
+                bool tls = ex.Message.IndexOf("pin", StringComparison.OrdinalIgnoreCase) >= 0
                            || ex.Message.IndexOf("cert", StringComparison.OrdinalIgnoreCase) >= 0
                            || ex.Message.IndexOf("TLS", StringComparison.Ordinal) >= 0;
-                r.TlsOk = !pin ? false : true;
+                r.TlsOk = !tls;
                 r.PinOk = false;
-                r.Detail = ex.Message;
+                r.Detail = string.IsNullOrEmpty(r.Detail) ? ex.Message : r.Detail + "; " + ex.Message;
                 return r;
             }
 

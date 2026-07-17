@@ -212,7 +212,7 @@ namespace Fezd.Contracts.Cli
             }),
             new CommandInfo("serve", "serve", CommandAvailability.LocalOnly, new[]
             {
-                "Run the HTTPS gateway (pinned TLS + scoped token auth).",
+                "Run the HTTPS gateway (TLS + scoped license auth).",
                 "Auto-configures netsh URL ACL, TLS bind, and Windows Firewall",
                 "for the listen port (elevated on first run).",
             }, options: new[]
@@ -221,33 +221,33 @@ namespace Fezd.Contracts.Cli
                 new CommandOption("--port <n>", "TLS port to listen on (default 8443)."),
                 new CommandOption("--token-store <file>", "Path to the scoped-token store (hashes at rest)."),
                 new CommandOption("--cert <pfx>", "Use a provisioned PFX instead of a self-signed cert."),
-                new CommandOption("--cert-thumbprint <hash>", "Bind an already-installed certificate."),
-                new CommandOption("--print-pin", "Print the cert pin and exit (does not start the server)."),
+                new CommandOption("--cert-thumbprint <hash>", "Bind an already-installed certificate (e.g. Let's Encrypt)."),
+                new CommandOption("--print-pin", "Print the legacy cert pin and exit (does not start the server)."),
             }),
             new CommandInfo("pin", "pin", CommandAvailability.LocalOnly, new[]
             {
-                "Print the gateway's TLS certificate pin (the client's --pin value)",
-                "without starting the server. Generates + pins a stable self-signed",
-                "cert on first run (needs Administrator); reading a pinned one does not.",
+                "Legacy: print the TLS leaf pin for direct self-signed clients only.",
+                "Not part of licensing — prefer public CA + FEZD_TOKEN.",
             }),
             new CommandInfo("setup", "setup", CommandAvailability.LocalOnly, new[]
             {
                 "Bootstrap the gateway: hostname (required for FEZD_URL), bind/port,",
-                "stable TLS pin, and open client access by default (token + pin auth).",
+                "TLS, and open client access by default (license = FEZD_TOKEN).",
             }, options: new[]
             {
-                new CommandOption("--hostname <host>", "Required. Reachable host/IP written into client FEZD_URL."),
+                new CommandOption("--hostname <host>", "Required. Reachable DNS/IP written into client FEZD_URL."),
                 new CommandOption("--bind <addr>", "Interface to bind (default 0.0.0.0)."),
                 new CommandOption("--port <n>", "Port the gateway will serve on (default 8443)."),
                 new CommandOption("--allow <ip|cidr>", "Optional lockdown CIDR(s). Omit to allow all (0.0.0.0/0)."),
-                new CommandOption("--rotate-cert", "Mint a new TLS cert (invalidates existing client FEZD_PIN)."),
-                new CommandOption("--no-pin", "Skip creating/printing the TLS cert pin (do it later)."),
+                new CommandOption("--rotate-cert", "Mint a new self-signed TLS cert (legacy pins become stale)."),
+                new CommandOption("--with-pin", "Legacy: also prepare/print a TLS leaf pin for self-signed clients."),
+                new CommandOption("--no-pin", "Deprecated no-op (pins are omitted by default)."),
             }),
             new CommandInfo("license", "license <sub>", CommandAvailability.LocalOnly, new[]
             {
                 "Manage client licenses (scoped bearer tokens, hashed at rest).",
                 "Subcommands: issue | revoke | list.",
-                "  issue  — mint a license and write a connection env file (--out).",
+                "  issue  — mint FEZD_URL + FEZD_TOKEN connection file (--out); no pin by default.",
                 "  revoke — disable by --name or --token-id.",
                 "  list   — print id, name, scopes, disabled, expires.",
             }, options: new[]
@@ -258,6 +258,8 @@ namespace Fezd.Contracts.Cli
                 new CommandOption("--out <path>", "Connection file to write (issue; default ./<name>.fezd.env)."),
                 new CommandOption("--allow <ip|cidr>", "Optional lockdown CIDRs to merge (issue)."),
                 new CommandOption("--token-id <id>", "Record id (issue/revoke)."),
+                new CommandOption("--with-pin", "Legacy: include FEZD_PIN for direct self-signed only."),
+                new CommandOption("--no-pin", "Deprecated no-op (default is no pin)."),
                 new CommandOption("--keep-local-copy", "Also write plaintext to server fezd-client.env (issue)."),
                 new CommandOption("--force", "Replace the token store instead of appending (issue)."),
             }),
@@ -270,9 +272,9 @@ namespace Fezd.Contracts.Cli
             }),
             new CommandInfo("health", "health", CommandAvailability.Remote, new[]
             {
-                "Check gateway reachability: TCP, TLS + cert pin, bearer auth,",
+                "Check gateway reachability: TCP (best-effort), TLS trust, bearer auth,",
                 "server version, and granted scopes. Aliases: ping, remote.",
-                "Prefer --connection <file>; or --remote/--token/--pin.",
+                "Prefer --connection <file>; or --remote/--token.",
             }, aliases: new[] { "ping", "remote" }),
             new CommandInfo("cancel", "cancel <session-id>", CommandAvailability.Remote, new[]
             {
@@ -291,12 +293,13 @@ namespace Fezd.Contracts.Cli
 
         public static readonly IReadOnlyList<GlobalOption> GlobalOptions = new List<GlobalOption>
         {
-            new GlobalOption("--connection <file>", "Load FEZD_URL, FEZD_TOKEN/FEZD_LICENSE, FEZD_PIN from an env file.", CommandAvailability.Remote),
+            new GlobalOption("--connection <file>", "Load FEZD_URL + FEZD_TOKEN/FEZD_LICENSE from an env file (optional legacy FEZD_PIN).", CommandAvailability.Remote),
             new GlobalOption("--remote <url>", "Target a gateway over HTTPS (or set FEZD_URL).", CommandAvailability.Remote),
-            new GlobalOption("--token <value>", "Scoped bearer token / license (or set FEZD_TOKEN).", CommandAvailability.Remote),
+            new GlobalOption("--token <value>", "Scoped bearer license (or set FEZD_TOKEN).", CommandAvailability.Remote),
             new GlobalOption("--license <value>", "Alias of --token (or set FEZD_LICENSE).", CommandAvailability.Remote),
-            new GlobalOption("--pin <sha256>", "Pin the gateway's certificate by SHA-256 fingerprint.", CommandAvailability.Remote),
+            new GlobalOption("--pin <sha256>", "Deprecated. Legacy leaf pin for direct self-signed only; omit for public CA / corp proxy.", CommandAvailability.Remote),
             new GlobalOption("--ca-cert <file>", "Trust a self-signed/CA certificate for the gateway.", CommandAvailability.Remote),
+            new GlobalOption("--no-proxy", "Bypass the system HTTP(S) proxy (direct connect).", CommandAvailability.Remote),
             new GlobalOption("--remote-timeout <sec>", "HTTP client timeout for gateway calls (default 300).", CommandAvailability.Remote),
             new GlobalOption("--config <path>", "Path to fezd.config.json (default: next to the executable).", CommandAvailability.LocalOnly),
             new GlobalOption("--log-level <level>", "trace | debug | info | warn | error.", CommandAvailability.LocalOnly),

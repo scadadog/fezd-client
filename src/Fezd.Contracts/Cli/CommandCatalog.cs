@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace Fezd.Contracts.Cli
 {
@@ -34,12 +35,19 @@ namespace Fezd.Contracts.Cli
             Summary = summary;
             Availability = availability;
         }
+
+        public bool IsAvailableIn(bool remoteMode) =>
+            remoteMode
+                ? Availability != CommandAvailability.LocalOnly
+                : Availability != CommandAvailability.Remote;
     }
 
     /// <summary>
     /// One verb in the shared command catalog. <see cref="Display"/> is the help
     /// column label (e.g. "deploy &lt;zef&gt;"); <see cref="DetailLines"/> are the
-    /// exact help lines rendered after the name column.
+    /// exact help lines rendered after the name column. Structured
+    /// <see cref="Options"/> are appended (filtered by mode) so help cannot drift
+    /// from the option list.
     /// </summary>
     public sealed class CommandInfo
     {
@@ -70,6 +78,9 @@ namespace Fezd.Contracts.Cli
             remoteMode
                 ? Availability == CommandAvailability.Remote || Availability == CommandAvailability.Both
                 : Availability == CommandAvailability.LocalOnly || Availability == CommandAvailability.Both;
+
+        public IEnumerable<CommandOption> OptionsFor(bool remoteMode) =>
+            Options.Where(o => o.IsAvailableIn(remoteMode));
     }
 
     /// <summary>A global option line shown under GLOBAL OPTIONS.</summary>
@@ -86,6 +97,11 @@ namespace Fezd.Contracts.Cli
             Detail = detail;
             Availability = availability;
         }
+
+        public bool IsAvailableIn(bool remoteMode) =>
+            remoteMode
+                ? Availability != CommandAvailability.LocalOnly
+                : Availability != CommandAvailability.Remote;
     }
 
     /// <summary>
@@ -114,17 +130,18 @@ namespace Fezd.Contracts.Cli
             }, aliases: new[] { "unreg", "uninstall" }),
             new CommandInfo("doctor", "doctor", CommandAvailability.Both, new[]
             {
-                "Validate the machine (OS, Control Expert, UDE, license, PLC).",
-                "Options: --simulator, --test-project <file>, --deep,",
-                "         --target <addr>, --port <n>, --timeout <ms>.",
+                "Validate the gateway environment (OS, Control Expert,",
+                "automation broker, license, PLC).",
             }, options: new[]
             {
                 new CommandOption("--simulator", "Validate a simulator deployment rather than a physical PLC."),
-                new CommandOption("--test-project <file>", "Known-good project for the import/build/save smoke tests."),
+                new CommandOption("--test-project <path>", "Known-good project path on the gateway host (not uploaded from the client)."),
                 new CommandOption("--deep", "Run the optional connect/download/run check (touches the target)."),
                 new CommandOption("--target <addr>", "PLC IP for the reachability probe (--deep). Required unless --simulator."),
                 new CommandOption("--port <n>", "PLC TCP port for the reachability probe (default 502)."),
                 new CommandOption("--timeout <ms>", "TCP connect timeout for the reachability probe."),
+                new CommandOption("--app-password <pwd>", "Application password for deep smoke tests (fezd-server only).", CommandAvailability.LocalOnly),
+                new CommandOption("--app-password-old <pwd>", "Current password when rotating (fezd-server only).", CommandAvailability.LocalOnly),
             }),
             new CommandInfo("build", "build <zef>", CommandAvailability.Both, new[]
             {
@@ -133,14 +150,12 @@ namespace Fezd.Contracts.Cli
             {
                 new CommandOption("--out <dir>", "Directory for the saved .stu."),
                 new CommandOption("--stu", "Save a .stu after building."),
+                new CommandOption("--app-password <pwd>", "Application password for the project (or set FEZD_APP_PASSWORD)."),
+                new CommandOption("--app-password-old <pwd>", "Current password when changing to a new one (rare; rotation only)."),
             }),
             new CommandInfo("deploy", "deploy <zef>", CommandAvailability.Both, new[]
             {
                 "Build, connect, download to PLC, and run.",
-                "Options: --target <addr>, --port <n>, --driver <drv>,",
-                "         --mode primary|secondary, --simulator, --run,",
-                "         --stu, --sta, --out <dir>, --force,",
-                "         --app-password <pwd>, --app-password-old <pwd>.",
                 "Safety: aborts if the PLC is in RUN, the target is",
                 "already reserved, or a project is already open in the",
                 "session. Use --force to stop a running PLC / close an",
@@ -150,9 +165,10 @@ namespace Fezd.Contracts.Cli
                 new CommandOption("--target <addr>", "PLC address to connect to."),
                 new CommandOption("--port <n>", "PLC TCP port (default 502)."),
                 new CommandOption("--driver <drv>", "Connection driver (default TCPIP)."),
-                new CommandOption("--mode primary|secondary", "Connection mode."),
+                new CommandOption("--mode primary|secondary", "Connection mode (fezd-server only; not on remote sessions).", CommandAvailability.LocalOnly),
                 new CommandOption("--simulator", "Deploy to the simulator instead of a PLC."),
                 new CommandOption("--run", "Start the PLC after a successful download."),
+                new CommandOption("--build / --no-build", "Build before deploy (default --build)."),
                 new CommandOption("--stu", "Save a .stu artifact."),
                 new CommandOption("--sta", "Save a .sta artifact."),
                 new CommandOption("--out <dir>", "Directory for saved artifacts."),
@@ -165,7 +181,7 @@ namespace Fezd.Contracts.Cli
                 "Release a target connection held by the UDE automation session",
                 "(best effort). Use before deploy when a prior run left the sim",
                 "or PLC reserved. Does not disconnect Control Expert UI — close",
-                "CE manually for that. Options: --simulator, --target <addr>, --force.",
+                "CE manually for that.",
             }, options: new[]
             {
                 new CommandOption("--simulator", "Disconnect from the simulator instead of a PLC."),
@@ -182,6 +198,9 @@ namespace Fezd.Contracts.Cli
                 new CommandOption("--stu", "Export a .stu artifact."),
                 new CommandOption("--sta", "Export a .sta artifact."),
                 new CommandOption("--out <dir>", "Directory for exported artifacts."),
+                new CommandOption("--build / --no-build", "Build before export (default --build)."),
+                new CommandOption("--app-password <pwd>", "Application password for the project (or set FEZD_APP_PASSWORD)."),
+                new CommandOption("--app-password-old <pwd>", "Current password when changing to a new one (rare; rotation only)."),
             }),
             new CommandInfo("inspect", "inspect <project>", CommandAvailability.LocalOnly, new[]
             {
@@ -195,9 +214,7 @@ namespace Fezd.Contracts.Cli
             {
                 "Run the HTTPS gateway (pinned TLS + scoped token auth).",
                 "Auto-configures netsh URL ACL, TLS bind, and Windows Firewall",
-                "for the listen port (elevated on first run). Options: --bind <addr>,",
-                "         --port <n>, --token-store <file>, --cert <pfx>,",
-                "         --cert-thumbprint <hash>, --print-pin.",
+                "for the listen port (elevated on first run).",
             }, options: new[]
             {
                 new CommandOption("--bind <addr>", "Interface to bind (default 127.0.0.1)."),
@@ -217,8 +234,6 @@ namespace Fezd.Contracts.Cli
             {
                 "Bootstrap the gateway: hostname (required for FEZD_URL), bind/port,",
                 "stable TLS pin, and open client access by default (token + pin auth).",
-                "Options: --hostname <host>, --bind <addr>, --port <n>,",
-                "         --allow <ip|cidr> (optional lockdown), --rotate-cert, --no-pin.",
             }, options: new[]
             {
                 new CommandOption("--hostname <host>", "Required. Reachable host/IP written into client FEZD_URL."),
@@ -256,9 +271,13 @@ namespace Fezd.Contracts.Cli
             new CommandInfo("ping", "ping", CommandAvailability.Remote, new[]
             {
                 "Check a remote gateway: TCP, TLS + cert pin, bearer auth,",
-                "server version, and granted scopes. Alias: 'remote check'.",
+                "server version, and granted scopes. Alias: 'remote'.",
                 "Prefer --connection <file>; or --remote/--token/--pin.",
             }, aliases: new[] { "remote" }),
+            new CommandInfo("cancel", "cancel <session-id>", CommandAvailability.Remote, new[]
+            {
+                "Cancel a queued or running deploy session on the gateway.",
+            }),
             new CommandInfo("platforms", "platforms", CommandAvailability.Both, new[]
             {
                 "List supported Modicon controller families.",
@@ -277,13 +296,14 @@ namespace Fezd.Contracts.Cli
             new GlobalOption("--license <value>", "Alias of --token (or set FEZD_LICENSE).", CommandAvailability.Remote),
             new GlobalOption("--pin <sha256>", "Pin the gateway's certificate by SHA-256 fingerprint.", CommandAvailability.Remote),
             new GlobalOption("--ca-cert <file>", "Trust a self-signed/CA certificate for the gateway.", CommandAvailability.Remote),
-            new GlobalOption("--config <path>", "Path to fezd.config.json (default: next to the executable)."),
-            new GlobalOption("--log-level <level>", "trace | debug | info | warn | error."),
-            new GlobalOption("--verbose, -v", "Shortcut for --log-level debug."),
-            new GlobalOption("--debug", "Shortcut for --log-level debug (adds HTTP wire tracing on fezd-client)."),
-            new GlobalOption("--trace", "Shortcut for --log-level trace."),
-            new GlobalOption("--com-timeout <sec>", "COM session wall-clock limit for build/deploy/export (default 600; 0=off)."),
-            new GlobalOption("--json | --no-json", "Toggle JSON log file output."),
+            new GlobalOption("--remote-timeout <sec>", "HTTP client timeout for gateway calls (default 300).", CommandAvailability.Remote),
+            new GlobalOption("--config <path>", "Path to fezd.config.json (default: next to the executable).", CommandAvailability.LocalOnly),
+            new GlobalOption("--log-level <level>", "trace | debug | info | warn | error.", CommandAvailability.LocalOnly),
+            new GlobalOption("--verbose, -v", "Shortcut for --log-level debug.", CommandAvailability.LocalOnly),
+            new GlobalOption("--debug", "Debug output (HTTP wire tracing on fezd-client)."),
+            new GlobalOption("--trace", "Trace output (HTTP wire tracing on fezd-client)."),
+            new GlobalOption("--com-timeout <sec>", "COM session wall-clock limit for build/deploy/export (default 600; 0=off).", CommandAvailability.LocalOnly),
+            new GlobalOption("--json | --no-json", "Toggle JSON log file output.", CommandAvailability.LocalOnly),
             new GlobalOption("--version", "Print version."),
             new GlobalOption("--help, -h", "Show this help."),
         };
@@ -320,6 +340,7 @@ namespace Fezd.Contracts.Cli
             "deploy project.zef --connection ./client.fezd.env --run",
             "build project.zef --connection ./client.fezd.env",
             "export project.zef --connection ./client.fezd.env --stu",
+            "cancel <session-id> --connection ./client.fezd.env",
         };
 
         /// <summary>Looks up a verb by name or alias (case-insensitive).</summary>
@@ -330,6 +351,54 @@ namespace Fezd.Contracts.Cli
             return Commands.FirstOrDefault(c =>
                 string.Equals(c.Name, nameOrAlias, System.StringComparison.OrdinalIgnoreCase) ||
                 c.Aliases.Any(a => string.Equals(a, nameOrAlias, System.StringComparison.OrdinalIgnoreCase)));
+        }
+
+        /// <summary>
+        /// True when the verb is Windows-host only (or a retired alias like
+        /// <c>provision</c>). Used by fezd-client to reject with a clear message.
+        /// </summary>
+        public static bool IsHostOnlyVerb(string nameOrAlias)
+        {
+            if (string.Equals(nameOrAlias, "provision", System.StringComparison.OrdinalIgnoreCase))
+                return true;
+            CommandInfo cmd = Find(nameOrAlias);
+            return cmd != null && cmd.Availability == CommandAvailability.LocalOnly;
+        }
+
+        /// <summary>Compact "Options: …" lines for help, wrapping near 60 columns of content.</summary>
+        public static string[] FormatOptionsSummary(IEnumerable<CommandOption> options)
+        {
+            CommandOption[] list = options?.ToArray() ?? new CommandOption[0];
+            if (list.Length == 0)
+                return new string[0];
+
+            const int wrapAt = 58;
+            var lines = new List<string>();
+            var current = new StringBuilder("Options: ");
+            for (int i = 0; i < list.Length; i++)
+            {
+                string piece = list[i].Spec;
+                string sep = i == list.Length - 1 ? "." : ",";
+                string candidate = piece + sep;
+                if (current.Length > "Options: ".Length &&
+                    current.Length + 1 + candidate.Length > wrapAt)
+                {
+                    lines.Add(current.ToString());
+                    current.Clear();
+                    current.Append("         ");
+                }
+                else if (current.Length > "Options: ".Length &&
+                         !current.ToString().EndsWith(" "))
+                {
+                    current.Append(' ');
+                }
+                current.Append(candidate);
+                if (i < list.Length - 1)
+                    current.Append(' ');
+            }
+            if (current.Length > 0)
+                lines.Add(current.ToString());
+            return lines.ToArray();
         }
     }
 }

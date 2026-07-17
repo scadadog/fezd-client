@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Net;
 using Fezd.Client;
 using Fezd.Contracts;
 using Fezd.Contracts.Cli;
@@ -44,6 +43,8 @@ namespace Fezd.Remote
 
         public static int Doctor(CommandLine cl)
         {
+            RemoteCliGuards.EnsureDoctorFlagsSupported(cl);
+
             var options = new DoctorOptionsDto
             {
                 Simulator = cl.HasFlag("simulator", "sim"),
@@ -51,10 +52,14 @@ namespace Fezd.Remote
                 Port = cl.GetInt("port", 502),
                 ConnectTimeoutMs = cl.GetInt("timeout", 3000),
                 TestProjectPath = cl.GetOption(new[] { "test-project", "test-zef", "test" }),
-                Deep = cl.HasFlag("deep"),
-                AppPassword = AppPassword(cl),
-                AppPasswordOld = cl.GetOption("app-password-old", string.Empty)
+                Deep = cl.HasFlag("deep")
             };
+
+            if (!string.IsNullOrEmpty(options.TestProjectPath))
+            {
+                Console.WriteLine(
+                    "Note: --test-project is a path on the gateway host (not uploaded from this machine).");
+            }
 
             using (var exec = new RemoteFezdExecutor(BuildOptions(cl)))
             {
@@ -95,6 +100,8 @@ namespace Fezd.Remote
 
         public static int Deploy(CommandLine cl)
         {
+            RemoteCliGuards.EnsureDeployFlagsSupported(cl);
+
             string zef = RequireZef(cl);
             bool simulator = cl.HasFlag("simulator", "sim");
             string targetAddress = cl.GetOption(new[] { "target", "address" });
@@ -106,10 +113,9 @@ namespace Fezd.Remote
                 TargetAddress = targetAddress,
                 Port = cl.GetInt("port", 502),
                 Driver = cl.GetOption("driver", "TCPIP"),
-                Mode = ParseMode(cl.GetOption("mode")),
                 Target = simulator ? TargetKindDto.Simulator : TargetKindDto.Plc,
                 BuildBeforeDeploy = cl.GetSwitch("build") ?? true,
-                Download = cl.GetSwitch("download") ?? true,
+                Download = true,
                 Run = cl.GetSwitch("run") ?? false,
                 Force = cl.HasFlag("force", "f"),
                 AppPassword = AppPassword(cl),
@@ -121,7 +127,7 @@ namespace Fezd.Remote
 
             RemoteOptions opts = BuildOptions(cl);
             Console.WriteLine($"Deploying {zef} to {(simulator ? "SIMULATOR" : req.TargetAddress)} " +
-                              $"(driver={req.Driver}, mode={req.Mode})...");
+                              $"(driver={req.Driver})...");
             using (var exec = new RemoteFezdExecutor(opts))
                 return Finish(exec.Deploy(req));
         }
@@ -148,6 +154,22 @@ namespace Fezd.Remote
             };
             using (var exec = new RemoteFezdExecutor(BuildOptions(cl)))
                 return Finish(exec.Export(req));
+        }
+
+        public static int Cancel(CommandLine cl)
+        {
+            if (cl.Positionals.Count < 2 || string.IsNullOrWhiteSpace(cl.Positionals[1]))
+                throw new RemoteCommsException(
+                    "Missing session id. Usage: fezd-client cancel <session-id> --connection <file>.",
+                    FezdExitCodes.UsageError);
+
+            string sessionId = cl.Positionals[1].Trim();
+            using (var exec = new RemoteFezdExecutor(BuildOptions(cl)))
+            {
+                SessionStatusDto status = exec.CancelSession(sessionId);
+                Console.WriteLine($"Session {status.Id} cancel requested (phase={status.Phase}).");
+                return FezdExitCodes.Ok;
+            }
         }
 
         // ---- helpers ----
@@ -224,7 +246,9 @@ namespace Fezd.Remote
                 (baseUrl.Scheme != Uri.UriSchemeHttps && baseUrl.Scheme != Uri.UriSchemeHttp))
                 throw new RemoteCommsException($"Invalid gateway URL: '{url}'.", FezdExitCodes.UsageError);
 
-            if (!IsLoopbackHost(baseUrl) &&
+            RemoteCliGuards.EnsureSecureTransport(baseUrl);
+
+            if (!RemoteCliGuards.IsLoopbackHost(baseUrl) &&
                 string.IsNullOrEmpty(pin) &&
                 string.IsNullOrEmpty(caCert))
             {
@@ -246,20 +270,6 @@ namespace Fezd.Remote
             };
         }
 
-        private static bool IsLoopbackHost(Uri baseUrl)
-        {
-            if (baseUrl == null)
-                return false;
-            if (baseUrl.IsLoopback)
-                return true;
-            string host = baseUrl.DnsSafeHost;
-            if (string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase))
-                return true;
-            if (IPAddress.TryParse(host, out IPAddress ip))
-                return IPAddress.IsLoopback(ip);
-            return false;
-        }
-
         private static void Emit(string level, string message)
         {
             string tag = (level ?? "info").ToUpperInvariant();
@@ -272,21 +282,6 @@ namespace Fezd.Remote
 
         private static string AppPassword(CommandLine cl) =>
             cl.GetOption("app-password") ?? Environment.GetEnvironmentVariable("FEZD_APP_PASSWORD");
-
-        private static ConnectionModeDto ParseMode(string mode)
-        {
-            if (string.IsNullOrWhiteSpace(mode))
-                return ConnectionModeDto.Primary;
-            switch (mode.Trim().ToLowerInvariant())
-            {
-                case "secondary":
-                case "backup":
-                case "standby":
-                    return ConnectionModeDto.Secondary;
-                default:
-                    return ConnectionModeDto.Primary;
-            }
-        }
 
         private static string RequireZef(CommandLine cl)
         {

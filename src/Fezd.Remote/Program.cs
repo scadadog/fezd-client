@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Reflection;
 using Fezd.Client;
 using Fezd.Contracts;
@@ -9,9 +8,9 @@ namespace Fezd.Remote
 {
     /// <summary>
     /// The FEZD remote client (<c>fezd-client</c>, Native AOT). Remote-control only:
-    /// only the Remote/Both verbs are exposed, each requires <c>--remote</c>, and
-    /// the job's exit code is reproduced locally. No UDE or Control Expert. Help/about
-    /// are rendered from the shared catalog (filtered to remote mode).
+    /// only Remote/Both catalog verbs are exposed. Connection via
+    /// <c>--connection</c> / <c>--remote</c> / env. No UDE or Control Expert.
+    /// Help/about are rendered from the shared catalog (filtered to remote mode).
     /// </summary>
     public static class Program
     {
@@ -47,12 +46,21 @@ namespace Fezd.Remote
                 return command == null && !cl.HasFlag("help", "h") ? FezdExitCodes.UsageError : FezdExitCodes.Ok;
             }
 
+            if (CommandCatalog.IsHostOnlyVerb(command))
+            {
+                Console.Error.WriteLine(
+                    $"ERROR: '{command}' runs on fezd-server (Windows) only and is not available in fezd-client.");
+                return FezdExitCodes.UsageError;
+            }
+
             try
             {
-                switch (command)
+                CommandInfo info = CommandCatalog.Find(command);
+                string verb = info != null ? info.Name : command;
+
+                switch (verb)
                 {
                     case "ping":
-                    case "remote":
                         return RemoteCommands.Ping(cl);
                     case "doctor":
                         return RemoteCommands.Doctor(cl);
@@ -62,23 +70,8 @@ namespace Fezd.Remote
                         return RemoteCommands.Deploy(cl);
                     case "export":
                         return RemoteCommands.Export(cl);
-
-                    // Windows-only verbs are not part of the remote surface.
-                    case "install":
-                    case "register":
-                    case "reg":
-                    case "unregister":
-                    case "unreg":
-                    case "uninstall":
-                    case "serve":
-                    case "service":
-                    case "setup":
-                    case "license":
-                    case "provision":
-                    case "pin":
-                        Console.Error.WriteLine(
-                            $"ERROR: '{command}' runs on fezd-server (Windows) only and is not available in fezd-client.");
-                        return FezdExitCodes.UsageError;
+                    case "cancel":
+                        return RemoteCommands.Cancel(cl);
 
                     default:
                         Console.Error.WriteLine($"Unknown command: '{command}'.");

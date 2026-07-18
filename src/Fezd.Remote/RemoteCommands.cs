@@ -249,6 +249,8 @@ namespace Fezd.Remote
                 PinSha256 = pin,
                 CaCertPath = caCert,
                 TimeoutSeconds = cl.GetInt("remote-timeout", 300),
+                UploadChunkKb = cl.GetInt("upload-chunk-kb", 1024),
+                NoChunkedUpload = cl.HasFlag("no-chunked-upload"),
                 TraceHttp = cl.HasFlag("debug") || cl.HasFlag("trace"),
                 NoProxy = cl.HasFlag("no-proxy"),
                 Emit = (level, msg) => Emit(level, msg)

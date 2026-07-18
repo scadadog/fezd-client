@@ -4,19 +4,26 @@ Notable changes to **fezd-client**.
 
 ## [Unreleased]
 
-### Changed
-
-- Shared catalog: `fezd-server serve` documents service install/start/stop/
-  restart/status/foreground; the separate `service` verb is removed from help
-  (still rejected as host-only on fezd-client).
-
 ### Added
 
+- **Chunked `.zef` upload** for corp-proxy paths: projects larger than
+  `--upload-chunk-kb` (default **1024**) are sent as multiple PUTs, reassembled
+  and SHA-256-verified on the gateway. Progress logs `part k of N`; on timeout/
+  disconnect the client aborts the session and performs one full resend.
+- `--upload-chunk-kb <n>` — max part size in KiB (default 1024).
+- `--no-chunked-upload` — force single-shot `POST /api/v1/projects`.
+- `--remote-timeout` help clarifies it applies **per HTTP request** (each part).
 - **`fezd-client update`** — download and install the latest release for this
   OS/arch from GitHub Releases (checksum-verified).
 - Best-effort update notice on other commands when a newer release exists
   (`Update available… Run: fezd-client update`). Opt out with
   `FEZD_SKIP_UPDATE_CHECK=1`.
+
+### Changed
+
+- Shared catalog: `fezd-server serve` documents service install/start/stop/
+  restart/status/foreground; the separate `service` verb is removed from help
+  (still rejected as host-only on fezd-client).
 
 ## [2.3.3] - 2026-07-17
 

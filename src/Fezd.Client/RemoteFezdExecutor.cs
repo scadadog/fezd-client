@@ -356,9 +356,45 @@ namespace Fezd.Client
             if (string.IsNullOrEmpty(zefPath) || !File.Exists(zefPath))
                 throw new RemoteCommsException($"Project file not found: '{zefPath}'.", FezdExitCodes.UsageError);
 
+            // One automatic full retry after rollback/resend_required or mid-upload failure.
+            try
+            {
+                return UploadProjectOnce(zefPath);
+            }
+            catch (RemoteCommsException ex) when (IsResendWorthy(ex))
+            {
+                _opts.Write("warn", "Upload failed; rolling back and retrying with a full resend...");
+                return UploadProjectOnce(zefPath);
+            }
+        }
+
+        private static bool IsResendWorthy(RemoteCommsException ex)
+        {
+            if (ex == null) return false;
+            string msg = ex.Message ?? "";
+            return msg.IndexOf("resend", StringComparison.OrdinalIgnoreCase) >= 0
+                || msg.IndexOf("Upload failed at part", StringComparison.OrdinalIgnoreCase) >= 0
+                || msg.IndexOf("timed out", StringComparison.OrdinalIgnoreCase) >= 0
+                || msg.IndexOf("Cannot reach", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private string UploadProjectOnce(string zefPath)
+        {
             string sha = Sha256File(zefPath);
             string fileName = Path.GetFileName(zefPath);
-            _opts.Write("info", $"Uploading {fileName} ({new FileInfo(zefPath).Length} bytes)...");
+            long size = new FileInfo(zefPath).Length;
+            int chunkKb = _opts.UploadChunkKb <= 0 ? 1024 : _opts.UploadChunkKb;
+            long preferredChunk = (long)chunkKb * 1024;
+
+            if (_opts.NoChunkedUpload || size <= preferredChunk)
+                return UploadProjectSingleShot(zefPath, sha, fileName, size);
+
+            return UploadProjectChunked(zefPath, sha, fileName, size, chunkKb);
+        }
+
+        private string UploadProjectSingleShot(string zefPath, string sha, string fileName, long size)
+        {
+            _opts.Write("info", $"Uploading {fileName} ({size} bytes)...");
 
             using (var fs = new FileStream(zefPath, FileMode.Open, FileAccess.Read, FileShare.Read))
             using (var content = new StreamContent(fs))
@@ -370,17 +406,142 @@ namespace Fezd.Client
                     req.Headers.TryAddWithoutValidation("X-Fezd-Filename", fileName);
                 }))
                 {
-                    ProjectUploadResultDto result = ReadJson(resp, FezdJsonContext.Default.ProjectUploadResultDto);
-                    if (!string.Equals(result.Sha256, sha, StringComparison.OrdinalIgnoreCase))
-                        throw new RemoteCommsException(
-                            $"Upload integrity mismatch: local sha256={sha}, server sha256={result.Sha256}.",
-                            FezdExitCodes.Error);
-                    _opts.Write("info",
-                        $"Upload verified: sha256={result.Sha256}, {result.Size} bytes (integrity OK).");
-                    _opts.Write("debug", $"Uploaded project {result.ProjectId} (dedup={result.Deduplicated}).");
-                    return result.ProjectId;
+                    return FinishUpload(resp, sha);
                 }
             }
+        }
+
+        private string UploadProjectChunked(string zefPath, string sha, string fileName, long size, int chunkKb)
+        {
+            var initReq = new ChunkedUploadInitRequestDto
+            {
+                FileName = fileName,
+                Sha256 = sha,
+                Size = size,
+                ChunkSizeKb = chunkKb
+            };
+            string initJson = JsonSerializer.Serialize(initReq, FezdJsonContext.Default.ChunkedUploadInitRequestDto);
+            ChunkedUploadInitResultDto init;
+            using (var initContent = new StringContent(initJson, Encoding.UTF8, "application/json"))
+            using (HttpResponseMessage initResp = Send(HttpMethod.Post, "/api/v1/projects/uploads", initContent, auth: true))
+            {
+                init = ReadJson(initResp, FezdJsonContext.Default.ChunkedUploadInitResultDto);
+            }
+
+            string uploadId = init.UploadId;
+            long chunkBytes = init.ChunkSizeBytes > 0 ? init.ChunkSizeBytes : (long)chunkKb * 1024;
+            int totalParts = init.TotalParts > 0
+                ? init.TotalParts
+                : (int)((size + chunkBytes - 1) / chunkBytes);
+
+            _opts.Write("info",
+                $"Uploading {fileName} ({size} bytes) in {totalParts} parts of up to {chunkBytes} bytes...");
+
+            try
+            {
+                using (var fs = new FileStream(zefPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    byte[] buffer = new byte[chunkBytes > int.MaxValue ? 1024 * 1024 : (int)chunkBytes];
+                    for (int index = 0; index < totalParts; index++)
+                    {
+                        long offset = index * chunkBytes;
+                        int toRead = (int)Math.Min(chunkBytes, size - offset);
+                        if (toRead <= 0)
+                            break;
+
+                        _opts.Write("info", $"Uploading part {index + 1} of {totalParts}...");
+
+                        fs.Position = offset;
+                        int read = 0;
+                        while (read < toRead)
+                        {
+                            int n = fs.Read(buffer, read, toRead - read);
+                            if (n == 0) break;
+                            read += n;
+                        }
+                        if (read != toRead)
+                        {
+                            AbortUpload(uploadId);
+                            throw new RemoteCommsException(
+                                $"Upload failed at part {index + 1} of {totalParts}: could not read local file.",
+                                FezdExitCodes.Error);
+                        }
+
+                        using (var content = new ByteArrayContent(buffer, 0, read))
+                        {
+                            content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+                            content.Headers.ContentLength = read;
+                            string partUrl = $"/api/v1/projects/uploads/{uploadId}/parts/{index}";
+                            try
+                            {
+                                using (HttpResponseMessage partResp = Send(HttpMethod.Put, partUrl, content, auth: true))
+                                {
+                                    ChunkedUploadPartAckDto ack =
+                                        ReadJson(partResp, FezdJsonContext.Default.ChunkedUploadPartAckDto);
+                                    _opts.Write("info",
+                                        $"Part {index + 1} of {totalParts} accepted " +
+                                        $"({ack.ReceivedParts}/{ack.TotalParts} on server).");
+                                }
+                            }
+                            catch (RemoteCommsException ex)
+                            {
+                                AbortUpload(uploadId);
+                                throw new RemoteCommsException(
+                                    $"Upload failed at part {index + 1} of {totalParts}: {ex.Message}. " +
+                                    "Rolling back; full resend required.",
+                                    ex, ex.ExitCode != 0 ? ex.ExitCode : FezdExitCodes.ConnectivityError);
+                            }
+                        }
+                    }
+                }
+
+                using (HttpResponseMessage completeResp = Send(
+                    HttpMethod.Post, $"/api/v1/projects/uploads/{uploadId}/complete", null, auth: true))
+                {
+                    return FinishUpload(completeResp, sha);
+                }
+            }
+            catch (RemoteCommsException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                AbortUpload(uploadId);
+                throw new RemoteCommsException(
+                    $"Upload failed: {ex.Message}. Rolling back; full resend required.",
+                    ex, FezdExitCodes.ConnectivityError);
+            }
+        }
+
+        private void AbortUpload(string uploadId)
+        {
+            if (string.IsNullOrEmpty(uploadId))
+                return;
+            try
+            {
+                using (Send(HttpMethod.Delete, $"/api/v1/projects/uploads/{uploadId}", null, auth: true))
+                {
+                    _opts.Write("debug", $"Aborted upload session {uploadId}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                _opts.Write("debug", $"Best-effort abort of upload {uploadId} failed: {ex.Message}");
+            }
+        }
+
+        private string FinishUpload(HttpResponseMessage resp, string localSha)
+        {
+            ProjectUploadResultDto result = ReadJson(resp, FezdJsonContext.Default.ProjectUploadResultDto);
+            if (!string.Equals(result.Sha256, localSha, StringComparison.OrdinalIgnoreCase))
+                throw new RemoteCommsException(
+                    $"Upload integrity mismatch: local sha256={localSha}, server sha256={result.Sha256}.",
+                    FezdExitCodes.Error);
+            _opts.Write("info",
+                $"Upload verified: sha256={result.Sha256}, {result.Size} bytes (integrity OK).");
+            _opts.Write("debug", $"Uploaded project {result.ProjectId} (dedup={result.Deduplicated}).");
+            return result.ProjectId;
         }
 
         private JobStatusDto PostJob(string url, string json)

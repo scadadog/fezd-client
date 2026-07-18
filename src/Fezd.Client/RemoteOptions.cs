@@ -24,8 +24,17 @@ namespace Fezd.Client
         /// <summary>Path to a CA/self-signed cert the server must chain to.</summary>
         public string CaCertPath { get; set; }
 
-        /// <summary>Per-request timeout. Jobs are polled, so this bounds each HTTP call.</summary>
+        /// <summary>Per-request timeout. Jobs are polled, so this bounds each HTTP call (including each upload part).</summary>
         public int TimeoutSeconds { get; set; } = 300;
+
+        /// <summary>
+        /// Max upload part size in KiB for chunked .zef transfers (default 1024).
+        /// Server may clamp; set lower behind strict corp proxies.
+        /// </summary>
+        public int UploadChunkKb { get; set; } = 1024;
+
+        /// <summary>When true, always use single-shot <c>POST /api/v1/projects</c>.</summary>
+        public bool NoChunkedUpload { get; set; }
 
         /// <summary>Emit redacted HTTP wire traces (enabled by --debug/--trace).</summary>
         public bool TraceHttp { get; set; }

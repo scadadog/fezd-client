@@ -44,6 +44,7 @@ namespace Fezd.Contracts.Tests
             Assert.Contains("Windows service", joined);
             Assert.Contains(serve.Options, o => o.Spec == "--start");
             Assert.Contains(serve.Options, o => o.Spec == "--foreground");
+            Assert.Contains(serve.Options, o => o.Spec == "--plain");
             Assert.Contains(serve.Options, o => o.Spec == "--restart");
         }
 

@@ -187,14 +187,26 @@ namespace Fezd.Remote
         {
             if (!result.Success && !string.IsNullOrEmpty(result.Message))
             {
-                Console.Error.WriteLine("ERROR: " + result.Message);
-                if (result.ExitCode == FezdExitCodes.BuildError &&
-                    result.Message.IndexOf("app-password", StringComparison.OrdinalIgnoreCase) < 0 &&
-                    result.Message.IndexOf("Protected Engineering Link", StringComparison.OrdinalIgnoreCase) < 0)
+                if (result.ExitCode == FezdExitCodes.BuildError)
                 {
+                    Console.Error.WriteLine();
                     Console.Error.WriteLine(
-                        "HINT: If this project needs an application password, re-run with " +
-                        "--app-password <pwd> (or set FEZD_APP_PASSWORD).");
+                        "CRITICAL: PROJECT BUILD FAILED — Control Expert reported errors in the " +
+                        "PLC/project code being deployed. This is not an FEZD automation or " +
+                        "gateway fault; open the project in Control Expert, fix the build " +
+                        "errors, and redeploy.");
+                    Console.Error.WriteLine("FATAL: " + result.Message);
+                    if (result.Message.IndexOf("app-password", StringComparison.OrdinalIgnoreCase) < 0 &&
+                        result.Message.IndexOf("Protected Engineering Link", StringComparison.OrdinalIgnoreCase) < 0)
+                    {
+                        Console.Error.WriteLine(
+                            "HINT: If this project needs an application password, re-run with " +
+                            "--app-password <pwd> (or set FEZD_APP_PASSWORD).");
+                    }
+                }
+                else
+                {
+                    Console.Error.WriteLine("ERROR: " + result.Message);
                 }
             }
             return result.ExitCode;

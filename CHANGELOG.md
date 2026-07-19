@@ -4,6 +4,15 @@ Notable changes to **fezd-client**.
 
 ## [Unreleased]
 
+### Changed
+
+- **Project build failures show as CRITICAL on the client:** when the gateway
+  reports a Control Expert `BuildAll` failure (exit code 6), `fezd-client`
+  prints a `CRITICAL: PROJECT BUILD FAILED` banner clarifying this is a problem
+  in the PLC/project code being deployed — not FEZD automation — and amplifies
+  streamed `fatal`/`error` build lines the moment they arrive so they are not
+  lost among session info noise.
+
 ### Added
 
 - **`fezd-client sim stop|status`** — stop the gateway-hosted Control Expert

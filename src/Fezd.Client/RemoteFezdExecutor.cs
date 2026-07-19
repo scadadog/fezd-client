@@ -176,6 +176,7 @@ namespace Fezd.Client
         {
             long cursor = 0;
             JobResultDto completedFromEvent = null;
+            bool buildCriticalAnnounced = false;
             while (true)
             {
                 // Prefer poll of /events?after= (works everywhere; WS is optional upgrade).
@@ -197,7 +198,18 @@ namespace Fezd.Client
                                 string message = e.TryGetProperty("message", out JsonElement m) ? m.GetString() : null;
                                 if (string.Equals(type, "log.line", StringComparison.OrdinalIgnoreCase) &&
                                     !string.IsNullOrEmpty(message))
+                                {
                                     _opts.Write(level ?? "info", message);
+                                    // Amplify project build failures the moment they stream in,
+                                    // so they are not lost among session info lines.
+                                    if (!buildCriticalAnnounced && IsCriticalBuildFailure(level, message))
+                                    {
+                                        buildCriticalAnnounced = true;
+                                        _opts.Write("fatal",
+                                            "CRITICAL: The message above is a Control Expert PROJECT BUILD " +
+                                            "failure (PLC/application code), not an FEZD automation error.");
+                                    }
+                                }
                                 else if (string.Equals(type, "queue.updated", StringComparison.OrdinalIgnoreCase) &&
                                          !string.IsNullOrEmpty(message))
                                     _opts.Write("info", message);
@@ -271,6 +283,19 @@ namespace Fezd.Client
                 }
                 return result;
             }
+        }
+
+        private static bool IsCriticalBuildFailure(string level, string message)
+        {
+            if (string.IsNullOrEmpty(message))
+                return false;
+            bool high = string.Equals(level, "fatal", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(level, "error", StringComparison.OrdinalIgnoreCase);
+            if (!high)
+                return false;
+            return message.IndexOf("PROJECT BUILD FAILED", StringComparison.OrdinalIgnoreCase) >= 0
+                   || message.IndexOf("Build failed:", StringComparison.OrdinalIgnoreCase) >= 0
+                   || message.IndexOf("CRITICAL: PROJECT BUILD", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private void DownloadSessionArtifacts(string sessionId, JobResultDto result, string destDir)

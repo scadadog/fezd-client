@@ -303,6 +303,21 @@ namespace Fezd.Client
             return result;
         }
 
+        /// <summary>GET /api/v1/simulator — status of host-managed sim.exe.</summary>
+        public SimulatorStatusDto SimulatorStatus()
+        {
+            using (HttpResponseMessage resp = Send(HttpMethod.Get, "/api/v1/simulator", null, auth: true))
+                return ReadJson(resp, FezdJsonContext.Default.SimulatorStatusDto);
+        }
+
+        /// <summary>POST /api/v1/simulator/stop — stop sim.exe (cuts idle wait).</summary>
+        public SimulatorStopResultDto SimulatorStop()
+        {
+            using (HttpResponseMessage resp = Send(HttpMethod.Post, "/api/v1/simulator/stop",
+                       new StringContent("{}", Encoding.UTF8, "application/json"), auth: true))
+                return ReadJson(resp, FezdJsonContext.Default.SimulatorStopResultDto);
+        }
+
         // ---- diagnostics: fezd ping / remote check ----
 
         public RemoteCheckResult Check()

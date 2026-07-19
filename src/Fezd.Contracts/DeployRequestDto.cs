@@ -48,6 +48,13 @@ namespace Fezd.Contracts
         [JsonPropertyName("force")]
         public bool Force { get; set; }
 
+        /// <summary>
+        /// When targeting the local simulator, kill and relaunch sim.exe before
+        /// download. Ignored for hardware PLC targets. Default true.
+        /// </summary>
+        [JsonPropertyName("restartSimulator")]
+        public bool RestartSimulator { get; set; } = true;
+
         [JsonPropertyName("appPassword")]
         public string AppPassword { get; set; }
 

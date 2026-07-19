@@ -4,6 +4,14 @@ Notable changes to **fezd-client**.
 
 ## [Unreleased]
 
+### Added
+
+- **`fezd-client sim stop|status`** — stop the gateway-hosted Control Expert
+  PLC Simulator early (cuts the idle-shutdown wait) or check status. Uses
+  `POST /api/v1/simulator/stop` and `GET /api/v1/simulator` (Control / Read
+  scopes). Remote `sim start` is rejected; `--simulator` deploy auto-starts
+  the sim on the server.
+
 ### Fixed
 
 - **`fezd-client update`:** a leftover `<exe>.old` from a previous self-update

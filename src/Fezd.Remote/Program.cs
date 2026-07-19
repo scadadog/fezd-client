@@ -79,6 +79,8 @@ namespace Fezd.Remote
                         return RemoteCommands.Export(cl);
                     case "cancel":
                         return RemoteCommands.Cancel(cl);
+                    case "sim":
+                        return RemoteCommands.Sim(cl);
 
                     default:
                         Console.Error.WriteLine($"Unknown command: '{command}'.");

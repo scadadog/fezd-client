@@ -34,6 +34,8 @@ namespace Fezd.Contracts
     [JsonSerializable(typeof(SessionEventDto))]
     [JsonSerializable(typeof(SessionTicketDto))]
     [JsonSerializable(typeof(ArtifactRefDto))]
+    [JsonSerializable(typeof(SimulatorStatusDto))]
+    [JsonSerializable(typeof(SimulatorStopResultDto))]
     public partial class FezdJsonContext : JsonSerializerContext
     {
     }

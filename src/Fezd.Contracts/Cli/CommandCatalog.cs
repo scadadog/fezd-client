@@ -187,6 +187,7 @@ namespace Fezd.Contracts.Cli
                 new CommandOption("--driver <drv>", "Connection driver (default TCPIP)."),
                 new CommandOption("--mode primary|secondary", "Connection mode (fezd-server only; not on remote sessions).", CommandAvailability.LocalOnly),
                 new CommandOption("--simulator", "Deploy to the simulator instead of a PLC."),
+                new CommandOption("--no-sim-restart", "Do not kill/relaunch local sim.exe before download (simulator deploys only).", CommandAvailability.LocalOnly),
                 new CommandOption("--run", "Start the PLC after a successful download."),
                 new CommandOption("--build / --no-build", "Build before deploy (default --build)."),
                 new CommandOption("--stu", "Save a .stu artifact."),
@@ -216,6 +217,20 @@ namespace Fezd.Contracts.Cli
                 new CommandOption("--port <n>", "PLC TCP port (default 502)."),
                 new CommandOption("--driver <drv>", "Connection driver (default TCPIP)."),
                 new CommandOption("--force", "Aggressively release the target connection."),
+            }),
+            new CommandInfo("sim", "sim <start|stop|status>", CommandAvailability.Both, new[]
+            {
+                "Control the server-hosted Control Expert PLC Simulator (sim.exe).",
+                "start / stop / status are local on fezd-server; remote fezd-client",
+                "supports stop and status (cuts the gateway idle-shutdown wait).",
+            }, options: new[]
+            {
+                new CommandOption("--port <n>", "Simulator TCP port (default from config / 502)."),
+            }, remoteDetailLines: new[]
+            {
+                "sim stop  — stop the gateway host's sim.exe now (cuts the idle wait).",
+                "sim status — report whether sim.exe is running and port is listening.",
+                "Requires --connection (or FEZD_URL + FEZD_TOKEN) with Control scope for stop.",
             }),
             new CommandInfo("export", "export <zef>", CommandAvailability.Both, new[]
             {
@@ -389,6 +404,9 @@ namespace Fezd.Contracts.Cli
             "deploy project.zef --target 192.168.1.10 --run --force",
             "deploy project.zef --target 127.0.0.1 --app-password \"<password>\" --run",
             "deploy project.zef --simulator",
+            "sim status",
+            "sim stop",
+            "sim start",
             @"export project.zef --stu --sta --out C:\artifacts",
             "setup --hostname gateway.example --port 8443",
             "license issue --name remote-client --out ./client.fezd.env",
@@ -410,6 +428,8 @@ namespace Fezd.Contracts.Cli
             "ping --connection ./client.fezd.env",
             "deploy project.zef --connection ./client.fezd.env --simulator --run",
             "deploy project.zef --connection ./client.fezd.env --target 192.168.1.10 --run",
+            "sim stop --connection ./client.fezd.env",
+            "sim status --connection ./client.fezd.env",
             "build project.zef --connection ./client.fezd.env --stu --out ./artifacts",
             "export project.zef --connection ./client.fezd.env --stu --out ./artifacts",
             "cancel <session-id> --connection ./client.fezd.env",

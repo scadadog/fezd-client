@@ -135,6 +135,51 @@ namespace Fezd.Remote
             }
         }
 
+        public static int Sim(CommandLine cl)
+        {
+            string sub = cl.Positionals.Count > 1
+                ? cl.Positionals[1].Trim().ToLowerInvariant()
+                : "status";
+
+            using (var exec = new RemoteFezdExecutor(BuildOptions(cl)))
+            {
+                switch (sub)
+                {
+                    case "status":
+                    {
+                        SimulatorStatusDto s = exec.SimulatorStatus();
+                        Console.WriteLine();
+                        Console.WriteLine("  PLC Simulator (gateway host)");
+                        Console.WriteLine("  " + new string('-', 40));
+                        Console.WriteLine("  managed        : " + s.Managed);
+                        Console.WriteLine("  exePath        : " + (s.ExePath ?? s.ResolveError ?? "(unknown)"));
+                        Console.WriteLine("  running        : " + s.Running +
+                                          (s.Pid.HasValue ? " (PID " + s.Pid.Value + ")" : ""));
+                        Console.WriteLine("  port           : " + s.Port);
+                        Console.WriteLine("  portListening  : " + s.PortListening);
+                        Console.WriteLine("  startedByFezd  : " + s.StartedByFezd);
+                        Console.WriteLine();
+                        return FezdExitCodes.Ok;
+                    }
+                    case "stop":
+                    {
+                        SimulatorStopResultDto r = exec.SimulatorStop();
+                        Console.WriteLine(r.Message ?? (r.Stopped ? "Simulator stopped." : "Simulator was not running."));
+                        return FezdExitCodes.Ok;
+                    }
+                    case "start":
+                        throw new RemoteCommsException(
+                            "sim start is local-only (fezd-server sim start). " +
+                            "Remote deploys with --simulator auto-start the simulator on the gateway.",
+                            FezdExitCodes.UsageError);
+                    default:
+                        throw new RemoteCommsException(
+                            "Unknown sim subcommand '" + sub + "'. Use: sim stop|status",
+                            FezdExitCodes.UsageError);
+                }
+            }
+        }
+
         // ---- helpers ----
 
         private static int Finish(JobResultDto result)

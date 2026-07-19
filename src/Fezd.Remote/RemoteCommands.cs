@@ -195,13 +195,26 @@ namespace Fezd.Remote
                         "PLC/project code being deployed. This is not an FEZD automation or " +
                         "gateway fault; open the project in Control Expert, fix the build " +
                         "errors, and redeploy.");
-                    Console.Error.WriteLine("FATAL: " + result.Message);
+                    // Print every line of the server-supplied report (includes CE Output Window).
+                    foreach (string line in result.Message.Replace("\r\n", "\n").Split('\n'))
+                    {
+                        if (!string.IsNullOrWhiteSpace(line))
+                            Console.Error.WriteLine("FATAL: " + line.TrimEnd());
+                    }
                     if (result.Message.IndexOf("app-password", StringComparison.OrdinalIgnoreCase) < 0 &&
                         result.Message.IndexOf("Protected Engineering Link", StringComparison.OrdinalIgnoreCase) < 0)
                     {
                         Console.Error.WriteLine(
                             "HINT: If this project needs an application password, re-run with " +
                             "--app-password <pwd> (or set FEZD_APP_PASSWORD).");
+                    }
+                    if (result.Artifacts != null)
+                    {
+                        foreach (string name in result.Artifacts)
+                        {
+                            if (string.Equals(name, "build-errors.txt", StringComparison.OrdinalIgnoreCase))
+                                Console.Error.WriteLine("HINT: Full build report also saved as artifact: " + name);
+                        }
                     }
                 }
                 else

@@ -6,6 +6,11 @@ Notable changes to **fezd-client**.
 
 ### Changed
 
+- **Full project build error list on the client:** when a deploy fails with
+  Control Expert build exit code 6, every line of the server build report is
+  printed (`FATAL: …`), and `build-errors.txt` is downloaded when the gateway
+  exposes it as a session artifact.
+
 - **Project build failures show as CRITICAL on the client:** when the gateway
   reports a Control Expert `BuildAll` failure (exit code 6), `fezd-client`
   prints a `CRITICAL: PROJECT BUILD FAILED` banner clarifying this is a problem

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -273,6 +274,24 @@ namespace Fezd.Client
                     ?? completedFromEvent
                     ?? JobResultDto.Fail(FezdExitCodes.Error, "Session finished without a result.");
 
+                // Session status carries ArtifactRefDto; fold names onto the result so
+                // DownloadSessionArtifacts can fetch build-errors.txt after a BuildError.
+                if (status.Artifacts != null && status.Artifacts.Count > 0)
+                {
+                    if (result.Artifacts == null)
+                        result.Artifacts = new List<string>();
+                    foreach (ArtifactRefDto a in status.Artifacts)
+                    {
+                        if (string.IsNullOrEmpty(a?.Name))
+                            continue;
+                        if (!result.Artifacts.Contains(a.Name))
+                            result.Artifacts.Add(a.Name);
+                        if (!result.Success)
+                            _opts.Write("info", "Artifact available: " + a.Name +
+                                (string.IsNullOrEmpty(a.Url) ? string.Empty : " -> " + a.Url));
+                    }
+                }
+
                 if (result.Success && status.Artifacts != null)
                 {
                     foreach (ArtifactRefDto a in status.Artifacts)
@@ -300,11 +319,23 @@ namespace Fezd.Client
 
         private void DownloadSessionArtifacts(string sessionId, JobResultDto result, string destDir)
         {
-            if (!result.Success || result.Artifacts == null || result.Artifacts.Count == 0)
+            if (result?.Artifacts == null || result.Artifacts.Count == 0)
                 return;
+
+            // Always download build-errors.txt after a project build failure; other
+            // artifacts only on success.
+            bool buildFailed = !result.Success && result.ExitCode == FezdExitCodes.BuildError;
+            if (!result.Success && !buildFailed)
+                return;
+
             string dir = string.IsNullOrEmpty(destDir) ? Directory.GetCurrentDirectory() : destDir;
             foreach (string name in result.Artifacts)
+            {
+                if (!result.Success &&
+                    !string.Equals(name, "build-errors.txt", StringComparison.OrdinalIgnoreCase))
+                    continue;
                 SaveSessionArtifact(sessionId, name, Path.Combine(dir, name));
+            }
         }
 
         private void SaveSessionArtifact(string sessionId, string name, string outPath)

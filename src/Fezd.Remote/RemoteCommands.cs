@@ -252,6 +252,7 @@ namespace Fezd.Remote
                 UploadChunkKb = cl.GetInt("upload-chunk-kb", 1024),
                 NoChunkedUpload = cl.HasFlag("no-chunked-upload"),
                 TraceHttp = cl.HasFlag("debug") || cl.HasFlag("trace"),
+                Verbose = cl.HasFlag("verbose", "v") || cl.HasFlag("debug") || cl.HasFlag("trace"),
                 NoProxy = cl.HasFlag("no-proxy"),
                 Emit = (level, msg) => Emit(level, msg)
             };
@@ -276,7 +277,9 @@ namespace Fezd.Remote
         {
             string tag = (level ?? "info").ToUpperInvariant();
             if (string.Equals(level, "error", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(level, "warn", StringComparison.OrdinalIgnoreCase))
+                string.Equals(level, "fatal", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(level, "warn", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(level, "warning", StringComparison.OrdinalIgnoreCase))
                 Console.Error.WriteLine($"[{tag}] {message}");
             else
                 Console.WriteLine($"[{tag}] {message}");

@@ -44,6 +44,7 @@ namespace Fezd.Contracts.Tests
             Assert.Contains("Windows service", joined);
             Assert.Contains(serve.Options, o => o.Spec == "--start");
             Assert.Contains(serve.Options, o => o.Spec == "--foreground");
+            Assert.Contains(serve.Options, o => o.Spec == "--plain");
             Assert.Contains(serve.Options, o => o.Spec == "--restart");
         }
 
@@ -164,7 +165,6 @@ namespace Fezd.Contracts.Tests
                 "--config <path>",
                 "--com-timeout <sec>",
                 "--log-level <level>",
-                "--verbose, -v",
                 "--json | --no-json",
             };
             foreach (string opt in hostOnly)
@@ -173,6 +173,9 @@ namespace Fezd.Contracts.Tests
                 Assert.Contains(opt, server);
             }
 
+            // --verbose is available on both: server log-level shortcut + client debug log filter.
+            Assert.Contains("--verbose, -v", client);
+            Assert.Contains("--verbose, -v", server);
             Assert.Contains("--debug", client);
             Assert.Contains("--trace", client);
             Assert.Contains("--debug", server);

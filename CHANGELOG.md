@@ -4,6 +4,14 @@ Notable changes to **fezd-client**.
 
 ## [Unreleased]
 
+### Changed
+
+- **Quiet default logging:** HTTP wire traces stay behind `--debug`/`--trace`.
+  Server `debug`/`trace` session `log.line` events are hidden unless
+  `--verbose`/`-v` (or `--debug`/`--trace`). Info/warn/error always show.
+- On `session.completed` failure (including project open/import), follow stops
+  immediately and `Finish` returns the non-zero exit code (`ERROR: …`).
+
 ### Added
 
 - **Chunked `.zef` upload** for corp-proxy paths: projects larger than

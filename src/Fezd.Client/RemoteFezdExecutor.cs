@@ -166,6 +166,7 @@ namespace Fezd.Client
         private JobResultDto FollowSession(string sessionId)
         {
             long cursor = 0;
+            JobResultDto completedFromEvent = null;
             while (true)
             {
                 // Prefer poll of /events?after= (works everywhere; WS is optional upgrade).
@@ -196,8 +197,25 @@ namespace Fezd.Client
                                     _opts.Write("info", message);
                                 else if (string.Equals(type, "session.completed", StringComparison.OrdinalIgnoreCase))
                                 {
-                                    if (e.TryGetProperty("artifacts", out JsonElement arts) &&
-                                        arts.ValueKind == JsonValueKind.Array)
+                                    string phase = e.TryGetProperty("phase", out JsonElement ph)
+                                        ? ph.GetString() : null;
+                                    bool failed = string.Equals(phase, "Failed", StringComparison.OrdinalIgnoreCase) ||
+                                                  string.Equals(phase, "Cancelled", StringComparison.OrdinalIgnoreCase);
+
+                                    if (failed)
+                                    {
+                                        int exitCode = e.TryGetProperty("exitCode", out JsonElement ec) &&
+                                                       ec.TryGetInt32(out int code)
+                                            ? code
+                                            : FezdExitCodes.Error;
+                                        string err = string.IsNullOrEmpty(message)
+                                            ? "Session " + (phase ?? "failed") + "."
+                                            : message;
+                                        // Capture for exit; server Error log.line + Finish() surface it.
+                                        completedFromEvent = JobResultDto.Fail(exitCode, err);
+                                    }
+                                    else if (e.TryGetProperty("artifacts", out JsonElement arts) &&
+                                             arts.ValueKind == JsonValueKind.Array)
                                     {
                                         foreach (JsonElement a in arts.EnumerateArray())
                                         {
@@ -220,13 +238,21 @@ namespace Fezd.Client
                     }
                 }
 
+                // Terminal failure from session.completed: stop polling immediately.
+                if (completedFromEvent != null && !completedFromEvent.Success)
+                    break;
+
                 Thread.Sleep(Math.Max(200, _opts.PollIntervalMs));
             }
 
             using (HttpResponseMessage resp = Send(HttpMethod.Get, $"/api/v1/sessions/{sessionId}", null, auth: true))
             {
                 SessionStatusDto status = ReadJson(resp, FezdJsonContext.Default.SessionStatusDto);
-                if (status.Artifacts != null)
+                JobResultDto result = status.Result
+                    ?? completedFromEvent
+                    ?? JobResultDto.Fail(FezdExitCodes.Error, "Session finished without a result.");
+
+                if (result.Success && status.Artifacts != null)
                 {
                     foreach (ArtifactRefDto a in status.Artifacts)
                     {
@@ -234,7 +260,7 @@ namespace Fezd.Client
                             _opts.Write("info", "Download: " + a.Url);
                     }
                 }
-                return status.Result ?? JobResultDto.Fail(FezdExitCodes.Error, "Session finished without a result.");
+                return result;
             }
         }
 

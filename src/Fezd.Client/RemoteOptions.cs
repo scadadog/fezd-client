@@ -39,6 +39,12 @@ namespace Fezd.Client
         /// <summary>Emit redacted HTTP wire traces (enabled by --debug/--trace).</summary>
         public bool TraceHttp { get; set; }
 
+        /// <summary>
+        /// When true, emit debug/trace progress lines (and pass through server
+        /// debug <c>log.line</c> events). Enabled by --verbose/--debug/--trace.
+        /// </summary>
+        public bool Verbose { get; set; }
+
         /// <summary>How often to poll job status/logs while a job runs.</summary>
         public int PollIntervalMs { get; set; } = 1000;
 
@@ -51,6 +57,18 @@ namespace Fezd.Client
         /// <summary>Sink for progress/log lines: (level, message). Defaults to Console.</summary>
         public Action<string, string> Emit { get; set; }
 
-        internal void Write(string level, string message) => Emit?.Invoke(level, message);
+        internal void Write(string level, string message)
+        {
+            if (IsQuietLevel(level) && !Verbose && !TraceHttp)
+                return;
+            Emit?.Invoke(level, message);
+        }
+
+        private static bool IsQuietLevel(string level)
+        {
+            if (string.IsNullOrEmpty(level)) return false;
+            return string.Equals(level, "debug", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(level, "trace", StringComparison.OrdinalIgnoreCase);
+        }
     }
 }

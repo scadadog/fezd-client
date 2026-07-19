@@ -9,6 +9,8 @@ namespace Fezd.Client
     public sealed class RemoteCheckResult
     {
         public string Endpoint { get; set; }
+        public bool UsesProxy { get; set; }
+        public string Route { get; set; }
         public bool TcpOk { get; set; }
         public bool TlsOk { get; set; }
         public bool PinOk { get; set; }

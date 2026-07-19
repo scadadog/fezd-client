@@ -21,7 +21,8 @@ namespace Fezd.Remote
                 Console.WriteLine();
                 Console.WriteLine($"  Gateway health: {r.Endpoint}");
                 Console.WriteLine("  " + new string('-', 50));
-                Line("TCP connect", r.TcpOk);
+                Console.WriteLine($"         HTTP route : {r.Route}");
+                Line(r.UsesProxy ? "Proxy TCP connect" : "Gateway TCP connect", r.TcpOk);
                 Line("TLS trust", r.TlsOk);
                 Line("Bearer auth (whoami)", r.AuthOk);
                 if (!string.IsNullOrEmpty(r.ServerVersion))
@@ -294,7 +295,7 @@ namespace Fezd.Remote
                 PinSha256 = pin,
                 CaCertPath = caCert,
                 TimeoutSeconds = cl.GetInt("remote-timeout", 300),
-                UploadChunkKb = cl.GetInt("upload-chunk-kb", 1024),
+                UploadChunkKb = cl.GetInt("upload-chunk-kb", 0),
                 NoChunkedUpload = cl.HasFlag("no-chunked-upload"),
                 TraceHttp = cl.HasFlag("debug") || cl.HasFlag("trace"),
                 Verbose = cl.HasFlag("verbose", "v") || cl.HasFlag("debug") || cl.HasFlag("trace"),

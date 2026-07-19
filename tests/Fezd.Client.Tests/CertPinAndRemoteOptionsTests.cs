@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using Fezd.Client;
 using Fezd.Contracts;
 using Fezd.Contracts.Cli;
@@ -58,6 +59,73 @@ namespace Fezd.Client.Tests
                 Token = "token"
             });
             Assert.NotNull(exec);
+        }
+    }
+
+    public class ProxyRouteDetectorTests
+    {
+        private static readonly Uri Destination = new Uri("https://gateway.example:8443/");
+
+        [Fact]
+        public void Detect_UsesConfiguredProxy()
+        {
+            var route = ProxyRouteDetector.Detect(
+                Destination,
+                noProxy: false,
+                new FixedProxy(new Uri("http://user:secret@proxy.example:8080/"), bypassed: false));
+
+            Assert.True(route.UsesProxy);
+            Assert.Equal("proxy.example", route.ProxyUri.Host);
+            Assert.Equal("proxy http://proxy.example:8080", route.Description);
+        }
+
+        [Fact]
+        public void Detect_RespectsSystemBypass()
+        {
+            var route = ProxyRouteDetector.Detect(
+                Destination,
+                noProxy: false,
+                new FixedProxy(new Uri("http://proxy.example:8080/"), bypassed: true));
+
+            Assert.False(route.UsesProxy);
+            Assert.Equal("direct", route.Description);
+        }
+
+        [Fact]
+        public void Detect_NoProxyForcesDirectRoute()
+        {
+            var route = ProxyRouteDetector.Detect(
+                Destination,
+                noProxy: true,
+                new FixedProxy(new Uri("http://proxy.example:8080/"), bypassed: false));
+
+            Assert.False(route.UsesProxy);
+            Assert.Null(route.ProxyUri);
+        }
+
+        [Fact]
+        public void UploadChunkDefaults_AreLargerForDirectRoute()
+        {
+            Assert.Equal(1024, RemoteOptions.ProxiedUploadChunkKb);
+            Assert.Equal(16 * 1024, RemoteOptions.DirectUploadChunkKb);
+            Assert.True(RemoteOptions.DirectUploadChunkKb > RemoteOptions.ProxiedUploadChunkKb);
+            Assert.Equal(0, new RemoteOptions().UploadChunkKb);
+        }
+
+        private sealed class FixedProxy : IWebProxy
+        {
+            private readonly Uri _proxy;
+            private readonly bool _bypassed;
+
+            public FixedProxy(Uri proxy, bool bypassed)
+            {
+                _proxy = proxy;
+                _bypassed = bypassed;
+            }
+
+            public ICredentials Credentials { get; set; }
+            public Uri GetProxy(Uri destination) => _proxy;
+            public bool IsBypassed(Uri host) => _bypassed;
         }
     }
 

@@ -29,11 +29,14 @@ Notable changes to **fezd-client**.
 
 ### Added
 
-- **Chunked `.zef` upload** for corp-proxy paths: projects larger than
-  `--upload-chunk-kb` (default **1024**) are sent as multiple PUTs, reassembled
+- **Chunked `.zef` upload** for corp-proxy paths: projects larger than the
+  route-aware chunk size are sent as multiple PUTs, reassembled
   and SHA-256-verified on the gateway. Progress logs `part k of N`; on timeout/
   disconnect the client aborts the session and performs one full resend.
-- `--upload-chunk-kb <n>` — max part size in KiB (default 1024).
+- Upload chunks default to 16 MiB for direct connections and 1 MiB when the
+  system proxy applies. `--upload-chunk-kb <n>` overrides the automatic size.
+- `ping` reports whether the gateway route is direct or through a system proxy
+  and tests the route's actual first TCP hop.
 - `--no-chunked-upload` — force single-shot `POST /api/v1/projects`.
 - `--remote-timeout` help clarifies it applies **per HTTP request** (each part).
 - **`fezd-client update`** — download and install the latest release for this

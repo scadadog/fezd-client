@@ -28,6 +28,7 @@ namespace Fezd.Client
     {
         private readonly RemoteOptions _opts;
         private readonly HttpClient _http;
+        private readonly ProxyRouteInfo _proxyRoute;
         private string _certFailure;
 
         public RemoteFezdExecutor(RemoteOptions options)
@@ -36,6 +37,9 @@ namespace Fezd.Client
             if (_opts.BaseUrl == null)
                 throw new RemoteCommsException("No remote endpoint set. Pass --remote <https url>.",
                     FezdExitCodes.UsageError);
+
+            IWebProxy systemProxy = _opts.NoProxy ? null : WebRequest.DefaultWebProxy;
+            _proxyRoute = ProxyRouteDetector.Detect(_opts.BaseUrl, _opts.NoProxy, systemProxy);
 
 #if NETFRAMEWORK
             // net48 defaults can exclude TLS 1.2; the gateway requires it.
@@ -54,7 +58,12 @@ namespace Fezd.Client
                 handler.UseProxy = false;
                 handler.Proxy = null;
             }
-            // else: UseProxy defaults true → system / WinHTTP / HTTP_PROXY
+            else if (systemProxy != null)
+            {
+                // Use the same system proxy instance whose bypass/PAC decision
+                // selected the route above.
+                handler.Proxy = systemProxy;
+            }
 
             _http = new HttpClient(handler)
             {
@@ -322,15 +331,21 @@ namespace Fezd.Client
 
         public RemoteCheckResult Check()
         {
-            var r = new RemoteCheckResult { Endpoint = _opts.BaseUrl.ToString() };
+            var r = new RemoteCheckResult
+            {
+                Endpoint = _opts.BaseUrl.ToString(),
+                UsesProxy = _proxyRoute.UsesProxy,
+                Route = _proxyRoute.Description
+            };
 
-            // 1) Raw TCP (best-effort). Soft-fail: corp networks that only allow
-            // HTTPS via an HTTP proxy will fail direct TCP even when the API works.
+            // 1) Raw TCP to the actual first hop: the gateway for a direct route,
+            // or the system HTTP proxy when its bypass rules select one.
             try
             {
+                Uri firstHop = _proxyRoute.UsesProxy ? _proxyRoute.ProxyUri : _opts.BaseUrl;
                 using (var tcp = new TcpClient())
                 {
-                    if (!tcp.ConnectAsync(_opts.BaseUrl.Host, _opts.BaseUrl.Port)
+                    if (!tcp.ConnectAsync(firstHop.Host, firstHop.Port)
                             .Wait(Math.Max(1000, _opts.TimeoutSeconds * 100)))
                         throw new TimeoutException("connect timed out");
                     r.TcpOk = tcp.Connected;
@@ -339,7 +354,8 @@ namespace Fezd.Client
             catch (Exception ex)
             {
                 r.TcpOk = false;
-                r.Detail = "TCP connect failed (continuing via HTTP; normal behind a corp proxy): "
+                r.Detail = (_proxyRoute.UsesProxy ? "Proxy" : "Gateway")
+                           + " TCP connect failed (continuing via HTTP): "
                            + Innermost(ex).Message;
             }
 
@@ -424,7 +440,7 @@ namespace Fezd.Client
             string sha = Sha256File(zefPath);
             string fileName = Path.GetFileName(zefPath);
             long size = new FileInfo(zefPath).Length;
-            int chunkKb = _opts.UploadChunkKb <= 0 ? 1024 : _opts.UploadChunkKb;
+            int chunkKb = _opts.ResolveUploadChunkKb(_proxyRoute.UsesProxy);
             long preferredChunk = (long)chunkKb * 1024;
 
             if (_opts.NoChunkedUpload || size <= preferredChunk)

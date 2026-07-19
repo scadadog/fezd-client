@@ -9,6 +9,9 @@ namespace Fezd.Client
     /// </summary>
     public sealed class RemoteOptions
     {
+        public const int ProxiedUploadChunkKb = 1024;
+        public const int DirectUploadChunkKb = 16 * 1024;
+
         /// <summary>Base URL of the gateway, e.g. https://fezd.scadadog.app.</summary>
         public Uri BaseUrl { get; set; }
 
@@ -28,10 +31,11 @@ namespace Fezd.Client
         public int TimeoutSeconds { get; set; } = 300;
 
         /// <summary>
-        /// Max upload part size in KiB for chunked .zef transfers (default 1024).
-        /// Server may clamp; set lower behind strict corp proxies.
+        /// Max upload part size in KiB for chunked .zef transfers. Zero selects
+        /// 1 MiB through a proxy and 16 MiB for a direct connection.
+        /// Server may clamp an explicit value.
         /// </summary>
-        public int UploadChunkKb { get; set; } = 1024;
+        public int UploadChunkKb { get; set; }
 
         /// <summary>When true, always use single-shot <c>POST /api/v1/projects</c>.</summary>
         public bool NoChunkedUpload { get; set; }
@@ -62,6 +66,13 @@ namespace Fezd.Client
             if (IsQuietLevel(level) && !Verbose && !TraceHttp)
                 return;
             Emit?.Invoke(level, message);
+        }
+
+        internal int ResolveUploadChunkKb(bool usesProxy)
+        {
+            return UploadChunkKb > 0
+                ? UploadChunkKb
+                : usesProxy ? ProxiedUploadChunkKb : DirectUploadChunkKb;
         }
 
         private static bool IsQuietLevel(string level)

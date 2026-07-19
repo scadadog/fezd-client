@@ -4,6 +4,13 @@ Notable changes to **fezd-client**.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`fezd-client update`:** a leftover `<exe>.old` from a previous self-update
+  no longer fails the Windows binary swap with “file already exists”. Stale
+  `.old`/`.new` leftovers are cleaned best-effort; if a backup is still locked,
+  the swap uses a unique `.old-<timestamp>` name.
+
 ### Changed
 
 - **Quiet default logging:** HTTP wire traces stay behind `--debug`/`--trace`.

@@ -214,17 +214,19 @@ namespace Fezd.Remote
             string dir = Path.GetDirectoryName(targetPath) ?? ".";
             string fileName = Path.GetFileName(targetPath);
             string staging = Path.Combine(dir, fileName + ".new");
-            string backup = Path.Combine(dir, fileName + ".old");
+
+            // A previous update can leave <exe>.old behind on Windows (the file was
+            // the image of the then-running exe, so the delete was refused). Clean up
+            // best-effort, and never let a stale/locked backup break the swap.
+            DeleteStaleBackups(dir, fileName);
 
             File.Copy(newBinaryPath, staging, overwrite: true);
             TryMakeExecutable(staging);
 
-            try
-            {
-                if (File.Exists(backup))
-                    File.Delete(backup);
-            }
-            catch { /* ignore */ }
+            string backup = Path.Combine(dir, fileName + ".old");
+            if (File.Exists(backup))
+                backup = Path.Combine(dir,
+                    fileName + ".old-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss"));
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
@@ -255,6 +257,24 @@ namespace Fezd.Remote
                 File.Move(staging, targetPath);
                 try { if (File.Exists(backup)) File.Delete(backup); } catch { /* ignore */ }
             }
+        }
+
+        /// <summary>Best-effort removal of <c>*.old</c> / <c>*.old-*</c> / <c>*.new</c>
+        /// leftovers from earlier updates (locked files are skipped).</summary>
+        private static void DeleteStaleBackups(string dir, string fileName)
+        {
+            try
+            {
+                foreach (string pattern in new[]
+                         { fileName + ".old", fileName + ".old-*", fileName + ".new" })
+                {
+                    foreach (string stale in Directory.GetFiles(dir, pattern))
+                    {
+                        try { File.Delete(stale); } catch { /* locked; unique name is used instead */ }
+                    }
+                }
+            }
+            catch { /* cleanup must never break the update */ }
         }
 
         private static string CurrentExePath()

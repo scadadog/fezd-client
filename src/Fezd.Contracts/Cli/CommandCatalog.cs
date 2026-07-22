@@ -159,6 +159,31 @@ namespace Fezd.Contracts.Cli
                 new CommandOption("--app-password <pwd>", "Application password for deep smoke tests (or set FEZD_APP_PASSWORD)."),
                 new CommandOption("--app-password-old <pwd>", "Current password when rotating (rare)."),
             }),
+            new CommandInfo("soak", "soak", CommandAvailability.LocalOnly, new[]
+            {
+                "Monte Carlo robustness campaign: successive UDE jobs with",
+                "random inter-launch gaps (default 1–60s) and optional multi-project queue.",
+                "Writes trials.csv + trials.jsonl for offline plotting.",
+                "Stop the gateway first (fezd-server serve --stop).",
+            }, options: new[]
+            {
+                new CommandOption("--mode new-app|import|deploy-sim|both", "Probe type (default new-app). deploy-sim = full M580→simulator."),
+                new CommandOption("--project <path>", "Single local .zef/.stu fixture."),
+                new CommandOption("--projects <p1,p2,...>", "Comma-separated fixture queue (different sizes)."),
+                new CommandOption("--projects-file <json>", "JSON array of {path,label} fixtures."),
+                new CommandOption("--project-sample uniform|round-robin", "How to pick the next project (default uniform)."),
+                new CommandOption("--trials <n>", "Number of trials (default 60)."),
+                new CommandOption("--duration <sec>", "Wall-clock cap in seconds (default 3600)."),
+                new CommandOption("--delay-min <sec>", "Min inter-launch gap (default 1)."),
+                new CommandOption("--delay-max <sec>", "Max inter-launch gap (default 60)."),
+                new CommandOption("--sample stratified|uniform", "Gap sampling (default stratified)."),
+                new CommandOption("--seed <int>", "RNG seed for reproducible campaigns."),
+                new CommandOption("--max-failures <n>", "Stop after N consecutive failures (0 = never)."),
+                new CommandOption("--keep-sim", "Do not restart sim.exe between deploy-sim trials."),
+                new CommandOption("--out-dir <path>", "Directory for trials.csv / trials.jsonl / summary.txt."),
+                new CommandOption("--app-password <pwd>", "Application password for import/deploy-sim."),
+                new CommandOption("--app-password-old <pwd>", "Current password when rotating (rare)."),
+            }),
             new CommandInfo("build", "build <zef>", CommandAvailability.Both, new[]
             {
                 "Open and rebuild a project (.zef required today).",
@@ -399,6 +424,8 @@ namespace Fezd.Contracts.Cli
             "unregister",
             "doctor",
             "doctor --simulator",
+            "soak --mode new-app --trials 10 --seed 1",
+            "soak --mode deploy-sim --projects small.zef,large.zef --trials 30 --seed 7",
             @"build project.zef --out C:\build --stu",
             "deploy project.zef --target 192.168.1.10 --driver TCPIP --run",
             "deploy project.zef --target 192.168.1.10 --run --force",

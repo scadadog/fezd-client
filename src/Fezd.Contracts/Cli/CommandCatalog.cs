@@ -296,21 +296,37 @@ namespace Fezd.Contracts.Cli
             {
                 "Bootstrap the gateway: hostname (required for FEZD_URL), bind/port,",
                 "TLS, and open client access by default (license = FEZD_TOKEN).",
+                "Interactive menu asks worker count (default 1 = single-session).",
             }, options: new[]
             {
                 new CommandOption("--hostname <host>", "Required. Reachable DNS/IP written into client FEZD_URL."),
                 new CommandOption("--bind <addr>", "Interface to bind (default 0.0.0.0)."),
                 new CommandOption("--port <n>", "Port the gateway will serve on (default 8443)."),
                 new CommandOption("--allow <ip|cidr>", "Optional lockdown CIDR(s). Omit to allow all (0.0.0.0/0)."),
+                new CommandOption("--workers <n>", "Worker count (1 = single-session; 2+ enables multi-worker)."),
+                new CommandOption("--worker-password <pw>", "Shared non-admin password for FezdWorkerN (with --workers)."),
+                new CommandOption("--non-interactive", "Skip the worker menu; keep existing workers config."),
                 new CommandOption("--rotate-cert", "Mint a new self-signed TLS cert (legacy pins become stale)."),
                 new CommandOption("--with-pin", "Legacy: also prepare/print a TLS leaf pin for self-signed clients."),
                 new CommandOption("--no-pin", "Deprecated no-op (pins are omitted by default)."),
+            }),
+            new CommandInfo("worker", "worker --id <wN>", CommandAvailability.LocalOnly, new[]
+            {
+                "Run an interactive Control Expert worker process (multi-worker mode only).",
+                "Requires service.workers with 2+ enabled entries from setup.",
+                "In single-session mode use 'serve' instead.",
+            }, options: new[]
+            {
+                new CommandOption("--id <wN>", "Worker id from fezd.config.json (e.g. w1)."),
+                new CommandOption("--listen <url>", "Override localhost bind (default from config)."),
             }),
             new CommandInfo("license", "license <sub>", CommandAvailability.LocalOnly, new[]
             {
                 "Manage client licenses (scoped bearer tokens, hashed at rest).",
                 "Subcommands: issue | revoke | list.",
                 "  issue  — mint FEZD_URL + FEZD_TOKEN connection file (--out); no pin by default.",
+                "Product term (customer / seats / expiry) is a signed fezd.lic from fezd-license,",
+                "not this command. Without fezd.lic the gateway is demo: 2 hours / 1 client.",
                 "  revoke — disable by --name or --token-id.",
                 "  list   — print id, name, scopes, disabled, expires.",
             }, options: new[]
@@ -409,6 +425,9 @@ namespace Fezd.Contracts.Cli
             "sim start",
             @"export project.zef --stu --sta --out C:\artifacts",
             "setup --hostname gateway.example --port 8443",
+            "setup --hostname gateway.example --workers 1 --non-interactive",
+            "setup --hostname gateway.example --workers 3 --worker-password '…'",
+            "worker --id w1",
             "license issue --name remote-client --out ./client.fezd.env",
             "license list",
             "pin",

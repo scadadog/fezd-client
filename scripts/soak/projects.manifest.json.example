@@ -1,0 +1,34 @@
+[
+  {
+    "label": "m340-small",
+    "family": "M340",
+    "sizeClass": "small",
+    "path": "../../dist/small_test_m340.ZEF",
+    "expectedDeploySec": 50,
+    "cancelAtSec": 20
+  },
+  {
+    "label": "m340-large",
+    "family": "M340",
+    "sizeClass": "large",
+    "path": "../../dist/large_test_m340.ZEF",
+    "expectedDeploySec": 90,
+    "cancelAtSec": 35
+  },
+  {
+    "label": "m580-small",
+    "family": "M580",
+    "sizeClass": "small",
+    "path": "../../dist/small_test_m580.ZEF",
+    "expectedDeploySec": 130,
+    "cancelAtSec": 45
+  },
+  {
+    "label": "m580-large",
+    "family": "M580",
+    "sizeClass": "large",
+    "path": "../../dist/large_test_m580.ZEF",
+    "expectedDeploySec": 200,
+    "cancelAtSec": 70
+  }
+]

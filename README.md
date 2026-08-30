@@ -49,6 +49,22 @@ We will reply with next steps and a connection file to use with:
 fezd-client health --connection ./your-license.fezd.env
 ```
 
+## Commands
+
+Connection is `--connection <file>` (`FEZD_URL` + `FEZD_TOKEN`). TLS pin (`FEZD_PIN` / `--pin`) is **optional** legacy leaf pinning for direct self-signed hosts; omit it to trust the OS certificate store.
+
+| Command | Purpose |
+|---|---|
+| `health` (aliases: `ping`, `remote`) | Reachability: TLS trust, bearer auth, server version |
+| `doctor` | Gateway host validation (`GET /api/v1/doctor`; `--test-project` is a **gateway** path) |
+| `deploy` | Upload `.zef`, exclusive session lease, build/download/run (`--simulator` or `--target`) |
+| `build` / `export` | Upload and rebuild / export `.stu`/`.sta` artifacts |
+| `cancel <session-id>` | Cancel a queued or running deploy session |
+| `sim stop` / `sim status` | Stop or inspect the gateway-hosted PLC Simulator |
+| `update` | Install the latest `fezd-client` release for this OS/arch |
+
+`fezd-client doctor` does not accept `--app-password` (those checks stay on `fezd-server doctor`). `sim start` is local-only on the gateway.
+
 ## Downloads
 
 Pre-built binaries are published automatically on every push to `main`

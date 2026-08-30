@@ -180,6 +180,15 @@ namespace Fezd.Contracts.Updates
                 {
                     TagName = root.TryGetProperty("tag_name", out JsonElement tag)
                         ? tag.GetString()
+                        : null,
+                    Name = root.TryGetProperty("name", out JsonElement nameProp)
+                        ? nameProp.GetString()
+                        : null,
+                    Body = root.TryGetProperty("body", out JsonElement bodyProp)
+                        ? bodyProp.GetString()
+                        : null,
+                    PublishedAt = root.TryGetProperty("published_at", out JsonElement pubProp)
+                        ? pubProp.GetString()
                         : null
                 };
                 if (root.TryGetProperty("assets", out JsonElement assets) &&
@@ -219,6 +228,9 @@ namespace Fezd.Contracts.Updates
     public sealed class GitHubRelease
     {
         public string TagName { get; set; }
+        public string Name { get; set; }
+        public string Body { get; set; }
+        public string PublishedAt { get; set; }
         public System.Collections.Generic.List<GitHubAsset> Assets { get; } =
             new System.Collections.Generic.List<GitHubAsset>();
 

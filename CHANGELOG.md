@@ -10,6 +10,9 @@ Notable changes to **fezd-client**.
   (`GET /api/v1/doctor`). `--test-project` is a path on the gateway.
   `--app-password` / `--app-password-old` are rejected (deep password checks
   stay on `fezd-server doctor`).
+- **`--no-sim-restart` on remote deploy:** `CreateSessionRequest.restartSimulator`
+  is sent to the gateway (default true). Use `--no-sim-restart` to keep a seeded
+  simulator instead of recycling sim.exe.
 
 ### Changed
 

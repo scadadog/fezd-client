@@ -194,7 +194,7 @@ namespace Fezd.Contracts.Cli
                 new CommandOption("--driver <drv>", "Connection driver (default TCPIP)."),
                 new CommandOption("--mode primary|secondary", "Connection mode (fezd-server only; not on remote sessions).", CommandAvailability.LocalOnly),
                 new CommandOption("--simulator", "Deploy to the simulator instead of a PLC."),
-                new CommandOption("--no-sim-restart", "Do not kill/relaunch local sim.exe before download (simulator deploys only).", CommandAvailability.LocalOnly),
+                new CommandOption("--no-sim-restart", "Do not kill/relaunch local sim.exe before download (simulator deploys only)."),
                 new CommandOption("--run", "Start the PLC after a successful download."),
                 new CommandOption("--build / --no-build", "Build before deploy (default --build)."),
                 new CommandOption("--stu", "Save a .stu artifact."),

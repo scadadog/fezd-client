@@ -137,7 +137,8 @@ namespace Fezd.Client
                 BuildBeforeDeploy = request.BuildBeforeDeploy,
                 AppPassword = request.AppPassword,
                 AppPasswordOld = request.AppPasswordOld,
-                ReservationName = request.ReservationName
+                ReservationName = request.ReservationName,
+                RestartSimulator = request.RestartSimulator
             };
 
             SessionStatusDto session;

@@ -184,6 +184,13 @@ namespace Fezd.Client.Tests
         }
 
         [Fact]
+        public void Deploy_AllowsNoSimRestart()
+        {
+            CommandLine cl = CommandLine.Parse(new[] { "deploy", "p.zef", "--simulator", "--no-sim-restart" });
+            RemoteCliGuards.EnsureDeployFlagsSupported(cl);
+        }
+
+        [Fact]
         public void Transport_RejectsNonLoopbackHttp()
         {
             var ex = Assert.Throws<RemoteCommsException>(() =>

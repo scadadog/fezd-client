@@ -191,6 +191,7 @@ namespace Fezd.Contracts.Tests
             string server = HelpRenderer.RenderUsage(meta, remoteMode: false);
 
             Assert.DoesNotContain("--mode primary|secondary", client);
+            Assert.Contains("--no-sim-restart", client);
             Assert.Contains("--mode primary|secondary", server);
             Assert.Contains("--build / --no-build", client);
             Assert.Contains("--app-password <pwd>", client);
@@ -213,6 +214,7 @@ namespace Fezd.Contracts.Tests
             Assert.Contains(clientDetails, l => l.StartsWith("Options:", StringComparison.Ordinal));
             Assert.Contains(clientDetails, l => l.Contains("--app-password <pwd>"));
             Assert.DoesNotContain(clientDetails, l => l.Contains("--mode primary|secondary"));
+            Assert.Contains(clientDetails, l => l.Contains("--no-sim-restart"));
             Assert.Contains(serverDetails, l => l.Contains("--mode primary|secondary"));
         }
 

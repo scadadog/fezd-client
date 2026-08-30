@@ -117,7 +117,8 @@ namespace Fezd.Remote
                 AppPasswordOld = cl.GetOption("app-password-old", string.Empty),
                 OutputDir = cl.GetOption(new[] { "out", "output" }),
                 SaveStu = cl.GetSwitch("save-stu") ?? cl.HasFlag("stu"),
-                SaveSta = cl.GetSwitch("save-sta") ?? cl.HasFlag("sta")
+                SaveSta = cl.GetSwitch("save-sta") ?? cl.HasFlag("sta"),
+                RestartSimulator = !cl.HasFlag("no-sim-restart")
             };
 
             RemoteOptions opts = BuildOptions(cl);

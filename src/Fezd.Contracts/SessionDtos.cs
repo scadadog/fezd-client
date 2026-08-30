@@ -59,6 +59,14 @@ namespace Fezd.Contracts
 
         [JsonPropertyName("reservationName")]
         public string ReservationName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// When targeting the simulator, kill and relaunch sim.exe before download.
+        /// Ignored for hardware PLC targets. Default true (matches today's remote
+        /// simulator behavior). Omit from JSON to keep that default on old clients.
+        /// </summary>
+        [JsonPropertyName("restartSimulator")]
+        public bool RestartSimulator { get; set; } = true;
     }
 
     public sealed class ArtifactRefDto

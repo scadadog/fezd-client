@@ -4,6 +4,8 @@ Notable changes to **fezd-client**.
 
 ## [Unreleased]
 
+## [2.4.0]
+
 ### Added
 
 - **`fezd-client doctor`** — run gateway host validation over HTTPS

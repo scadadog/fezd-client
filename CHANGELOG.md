@@ -6,6 +6,9 @@ Notable changes to **fezd-client**.
 
 ### Changed
 
+- README command list: `health`, `doctor`, `deploy`, `build`/`export`, `cancel`,
+  `sim stop|status`, `update`. TLS pin is documented as optional.
+
 - **Full project build error list on the client:** when a deploy fails with
   Control Expert build exit code 6, every line of the server build report is
   printed (`FATAL: …`), and `build-errors.txt` is downloaded when the gateway

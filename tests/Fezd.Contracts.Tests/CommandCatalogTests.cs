@@ -12,7 +12,7 @@ namespace Fezd.Contracts.Tests
         {
             string[] localOnly =
             {
-                "install", "register", "unregister", "doctor", "disconnect", "inspect",
+                "install", "register", "unregister", "disconnect", "inspect",
                 "serve", "setup", "license", "pin"
             };
             foreach (string name in localOnly)
@@ -33,6 +33,7 @@ namespace Fezd.Contracts.Tests
             Assert.False(CommandCatalog.IsHostOnlyVerb("deploy"));
             Assert.False(CommandCatalog.IsHostOnlyVerb("health"));
             Assert.False(CommandCatalog.IsHostOnlyVerb("cancel"));
+            Assert.False(CommandCatalog.IsHostOnlyVerb("doctor"));
         }
 
         [Fact]
@@ -51,7 +52,7 @@ namespace Fezd.Contracts.Tests
         [Fact]
         public void ClientSurface_IncludesRemoteOps()
         {
-            foreach (string name in new[] { "health", "build", "deploy", "export", "cancel", "update" })
+            foreach (string name in new[] { "health", "doctor", "build", "deploy", "export", "cancel", "update" })
             {
                 CommandInfo cmd = CommandCatalog.Find(name);
                 Assert.NotNull(cmd);
@@ -112,7 +113,7 @@ namespace Fezd.Contracts.Tests
             Assert.DoesNotContain("\n  unregister", client);
             Assert.DoesNotContain("\n  disconnect", client);
             Assert.DoesNotContain("\n  inspect", client);
-            Assert.DoesNotContain("\n  doctor", client);
+            Assert.Contains("\n  doctor", client);
             Assert.Contains("\n  health", client);
             Assert.Contains("\n  update", client);
             Assert.Contains("\n  update", server);
@@ -236,7 +237,7 @@ namespace Fezd.Contracts.Tests
                 ex.Contains("--simulator"));
             Assert.Contains(CommandCatalog.ClientExamples, ex =>
                 ex.StartsWith("cancel ", StringComparison.Ordinal));
-            Assert.DoesNotContain(CommandCatalog.ClientExamples, ex =>
+            Assert.Contains(CommandCatalog.ClientExamples, ex =>
                 ex.StartsWith("doctor ", StringComparison.Ordinal));
             Assert.Contains(CommandCatalog.ServerExamples, ex => ex == "update");
             Assert.Contains(CommandCatalog.ServerExamples, ex => ex == "serve");

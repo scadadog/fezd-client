@@ -71,6 +71,8 @@ namespace Fezd.Remote
                 {
                     case "health":
                         return RemoteCommands.Health(cl);
+                    case "doctor":
+                        return RemoteCommands.Doctor(cl);
                     case "build":
                         return RemoteCommands.Build(cl);
                     case "deploy":

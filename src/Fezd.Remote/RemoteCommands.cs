@@ -41,6 +41,37 @@ namespace Fezd.Remote
             }
         }
 
+        public static int Doctor(CommandLine cl)
+        {
+            RemoteCliGuards.EnsureDoctorFlagsSupported(cl);
+
+            var options = new DoctorOptionsDto
+            {
+                Simulator = cl.HasFlag("simulator", "sim"),
+                TargetAddress = cl.GetOption(new[] { "target", "address" }),
+                Port = cl.GetInt("port", 502),
+                ConnectTimeoutMs = cl.GetInt("timeout", 3000),
+                TestProjectPath = cl.GetOption(new[] { "test-project", "test-zef", "test" }),
+                Deep = cl.HasFlag("deep")
+            };
+
+            using (var exec = new RemoteFezdExecutor(BuildOptions(cl)))
+            {
+                DoctorReportDto report = exec.Doctor(options);
+                PrintDoctorReport(report);
+                if (!report.Healthy)
+                {
+                    Console.Error.WriteLine(
+                        "ERROR: Doctor found " + report.FailCount + " blocking issue(s).");
+                    return FezdExitCodes.DoctorFailed;
+                }
+                Console.WriteLine(report.WarnCount > 0
+                    ? "Environment usable with " + report.WarnCount + " warning(s)."
+                    : "Environment healthy. All checks passed.");
+                return FezdExitCodes.Ok;
+            }
+        }
+
         public static int Build(CommandLine cl)
         {
             string zef = RequireZef(cl);
@@ -370,5 +401,57 @@ namespace Fezd.Remote
 
         private static void Line(string label, bool ok) =>
             Console.WriteLine($"  [ {(ok ? "OK " : "FAIL")} ] {label}");
+
+        private static void PrintDoctorReport(DoctorReportDto report)
+        {
+            Console.WriteLine();
+            Console.WriteLine("  FEZD DOCTOR REPORT");
+            Console.WriteLine("  " + new string('-', 60));
+
+            foreach (CheckResultDto r in report.Results)
+            {
+                WriteDoctorStatus(r.Status);
+                Console.WriteLine("  " + r.Name);
+                Console.WriteLine("        " + r.Detail);
+                if (!string.IsNullOrWhiteSpace(r.Remedy) &&
+                    (r.Status == CheckStatusDto.Fail || r.Status == CheckStatusDto.Warn))
+                {
+                    Console.WriteLine("        -> " + r.Remedy);
+                }
+            }
+
+            Console.WriteLine("  " + new string('-', 60));
+            Console.WriteLine(
+                "  PASS " + report.PassCount + "   WARN " + report.WarnCount + "   " +
+                "FAIL " + report.FailCount + "   SKIP " + report.SkipCount);
+            Console.WriteLine();
+        }
+
+        private static void WriteDoctorStatus(CheckStatusDto status)
+        {
+            ConsoleColor original = Console.ForegroundColor;
+            string tag;
+            switch (status)
+            {
+                case CheckStatusDto.Pass:
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    tag = "[PASS]";
+                    break;
+                case CheckStatusDto.Warn:
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    tag = "[WARN]";
+                    break;
+                case CheckStatusDto.Fail:
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    tag = "[FAIL]";
+                    break;
+                default:
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    tag = "[SKIP]";
+                    break;
+            }
+            Console.Write("  " + tag);
+            Console.ForegroundColor = original;
+        }
     }
 }

@@ -4,6 +4,12 @@ Notable changes to **fezd-client**.
 
 ## [Unreleased]
 
+### Added
+
+- **`--no-sim-restart` on remote deploy:** `CreateSessionRequest.restartSimulator`
+  is sent to the gateway (default true). Use `--no-sim-restart` to keep a seeded
+  simulator instead of recycling sim.exe.
+
 ### Changed
 
 - **Full project build error list on the client:** when a deploy fails with

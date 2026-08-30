@@ -144,20 +144,27 @@ namespace Fezd.Contracts.Cli
             {
                 "Remove the UDE COM registration (auto-elevates).",
             }, aliases: new[] { "unreg", "uninstall" }),
-            new CommandInfo("doctor", "doctor", CommandAvailability.LocalOnly, new[]
+            new CommandInfo("doctor", "doctor", CommandAvailability.Both, new[]
             {
                 "Validate this Windows host (OS, Control Expert,",
                 "automation broker, license, PLC).",
             }, options: new[]
             {
                 new CommandOption("--simulator", "Validate a simulator deployment rather than a physical PLC."),
-                new CommandOption("--test-project <path>", "Known-good project for the import/build/save smoke tests."),
+                new CommandOption("--test-project <path>", "Known-good project for the import/build/save smoke tests (gateway path when remote)."),
                 new CommandOption("--deep", "Run the optional connect/download/run check (touches the target)."),
                 new CommandOption("--target <addr>", "PLC IP for the reachability probe (--deep). Required unless --simulator."),
                 new CommandOption("--port <n>", "PLC TCP port for the reachability probe (default 502)."),
                 new CommandOption("--timeout <ms>", "TCP connect timeout for the reachability probe."),
-                new CommandOption("--app-password <pwd>", "Application password for deep smoke tests (or set FEZD_APP_PASSWORD)."),
-                new CommandOption("--app-password-old <pwd>", "Current password when rotating (rare)."),
+                new CommandOption("--app-password <pwd>", "Application password for deep smoke tests (or set FEZD_APP_PASSWORD).", CommandAvailability.LocalOnly),
+                new CommandOption("--app-password-old <pwd>", "Current password when rotating (rare).", CommandAvailability.LocalOnly),
+            }, remoteDetailLines: new[]
+            {
+                "Run doctor on the FEZD gateway host (OS, Control Expert,",
+                "automation broker, license, PLC) over HTTPS.",
+                "--test-project is a path on the gateway, not this machine.",
+                "Requires --connection (or FEZD_URL + FEZD_TOKEN). Deep +",
+                "application-password checks stay on fezd-server.",
             }),
             new CommandInfo("build", "build <zef>", CommandAvailability.Both, new[]
             {
@@ -426,6 +433,8 @@ namespace Fezd.Contracts.Cli
         public static readonly IReadOnlyList<string> ClientExamples = new List<string>
         {
             "ping --connection ./client.fezd.env",
+            "doctor --connection ./client.fezd.env",
+            "doctor --connection ./client.fezd.env --simulator",
             "deploy project.zef --connection ./client.fezd.env --simulator --run",
             "deploy project.zef --connection ./client.fezd.env --target 192.168.1.10 --run",
             "sim stop --connection ./client.fezd.env",

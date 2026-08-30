@@ -38,6 +38,34 @@ namespace Fezd.Client
         }
 
         /// <summary>
+        /// Gateway doctor is GET query-string only and does not accept application
+        /// passwords. Reject those flags so they are not silently ignored (and so
+        /// secrets are never placed on the URL).
+        /// </summary>
+        public static void EnsureDoctorFlagsSupported(CommandLine cl)
+        {
+            if (cl == null)
+                throw new ArgumentNullException(nameof(cl));
+
+            if (!string.IsNullOrEmpty(cl.GetOption("app-password")) || cl.HasFlag("app-password"))
+            {
+                throw new RemoteCommsException(
+                    "--app-password is not supported on fezd-client doctor " +
+                    "(the gateway GET /api/v1/doctor cannot take secrets). " +
+                    "Run deep password checks with fezd-server doctor on the host.",
+                    FezdExitCodes.UsageError);
+            }
+
+            if (!string.IsNullOrEmpty(cl.GetOption("app-password-old")) || cl.HasFlag("app-password-old"))
+            {
+                throw new RemoteCommsException(
+                    "--app-password-old is not supported on fezd-client doctor. " +
+                    "Run deep password checks with fezd-server doctor on the host.",
+                    FezdExitCodes.UsageError);
+            }
+        }
+
+        /// <summary>
         /// Non-loopback gateways must use HTTPS. Cleartext HTTP is only allowed
         /// for localhost / loopback development.
         /// </summary>

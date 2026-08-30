@@ -4,6 +4,13 @@ Notable changes to **fezd-client**.
 
 ## [Unreleased]
 
+### Added
+
+- **`fezd-client doctor`** — run gateway host validation over HTTPS
+  (`GET /api/v1/doctor`). `--test-project` is a path on the gateway.
+  `--app-password` / `--app-password-old` are rejected (deep password checks
+  stay on `fezd-server doctor`).
+
 ### Changed
 
 - **Full project build error list on the client:** when a deploy fails with

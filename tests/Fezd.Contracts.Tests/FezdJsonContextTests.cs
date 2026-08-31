@@ -56,5 +56,45 @@ namespace Fezd.Contracts.Tests
             Assert.Equal(7, FezdExitCodes.DeployError);
             Assert.Equal(8, FezdExitCodes.TargetBusy);
         }
+
+        [Fact]
+        public void AutomationProfile_RoundTripsThroughSourceGenContext()
+        {
+            var dto = new AutomationProfileDto
+            {
+                Id = "schneider-control-expert",
+                Vendor = "Schneider Electric",
+                Toolchain = "EcoStruxure Control Expert",
+                DisplayName = "Control Expert gateway",
+                ProjectFormats = { ".zef", ".stu" },
+                Platforms =
+                {
+                    new AutomationPlatformDto
+                    {
+                        Family = "Modicon M340",
+                        Prefixes = "BMX P34",
+                        Notes = "Primary",
+                        Simulator = true,
+                        Physical = true
+                    }
+                },
+                Simulator = new SimulatorProfileDto
+                {
+                    DisplayName = "Control Expert PLC Simulator",
+                    Families = { "M340", "M580" }
+                },
+                Note = "Test."
+            };
+
+            string json = JsonSerializer.Serialize(dto, FezdJsonContext.Default.AutomationProfileDto);
+            Assert.Contains("\"id\":\"schneider-control-expert\"", json);
+            Assert.Contains("\"simulator\":true", json);
+
+            AutomationProfileDto back = JsonSerializer.Deserialize(json, FezdJsonContext.Default.AutomationProfileDto);
+            Assert.Equal(dto.Id, back.Id);
+            Assert.Equal(dto.Vendor, back.Vendor);
+            Assert.Equal("M340", back.Simulator.Families[0]);
+            Assert.True(back.Platforms[0].Simulator);
+        }
     }
 }

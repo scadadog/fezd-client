@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Fezd.Contracts;
 
 namespace Fezd.Client
 {
@@ -16,6 +17,7 @@ namespace Fezd.Client
         public bool PinOk { get; set; }
         public bool AuthOk { get; set; }
         public string ServerVersion { get; set; }
+        public AutomationProfileDto Profile { get; set; }
         public List<string> Scopes { get; set; } = new List<string>();
 
         /// <summary>First failure detail, if any (used for the exit message).</summary>

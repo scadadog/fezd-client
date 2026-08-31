@@ -38,8 +38,15 @@ namespace Fezd.Remote
             }
             if (command == "platforms" || command == "plcs")
             {
-                Console.WriteLine(HelpRenderer.RenderPlatforms(remoteMode: true));
-                return FezdExitCodes.Ok;
+                try
+                {
+                    return RemoteCommands.Platforms(cl);
+                }
+                catch (RemoteCommsException rce)
+                {
+                    Console.Error.WriteLine("ERROR: " + rce.Message);
+                    return rce.ExitCode;
+                }
             }
             if (IsHelpRequest(command, cl))
             {

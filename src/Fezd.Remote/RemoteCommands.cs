@@ -27,6 +27,18 @@ namespace Fezd.Remote
                 Line("Bearer auth (whoami)", r.AuthOk);
                 if (!string.IsNullOrEmpty(r.ServerVersion))
                     Console.WriteLine($"         server version : {r.ServerVersion}");
+                if (r.Profile != null)
+                {
+                    if (!string.IsNullOrEmpty(r.Profile.Vendor) || !string.IsNullOrEmpty(r.Profile.Toolchain))
+                        Console.WriteLine($"         automation     : {r.Profile.Vendor} / {r.Profile.Toolchain}");
+                    if (r.Profile.Simulator != null && r.Profile.Simulator.Families != null &&
+                        r.Profile.Simulator.Families.Count > 0)
+                    {
+                        Console.WriteLine("         simulator      : " +
+                                          (r.Profile.Simulator.DisplayName ?? "PLC Simulator") +
+                                          " (" + string.Join(", ", r.Profile.Simulator.Families) + ")");
+                    }
+                }
                 if (r.Scopes != null && r.Scopes.Count > 0)
                     Console.WriteLine($"         granted scopes : {string.Join(", ", r.Scopes)}");
                 Console.WriteLine();
@@ -38,6 +50,22 @@ namespace Fezd.Remote
                 }
                 Console.Error.WriteLine("ERROR: " + (r.Detail ?? "Gateway health check failed."));
                 return FezdExitCodes.ConnectivityError;
+            }
+        }
+
+        public static int Platforms(CommandLine cl)
+        {
+            if (!HasRemoteTarget(cl))
+            {
+                Console.WriteLine(HelpRenderer.RenderPlatformsOffline());
+                return FezdExitCodes.Ok;
+            }
+
+            using (var exec = new RemoteFezdExecutor(BuildOptions(cl)))
+            {
+                AutomationProfileDto profile = exec.GetProfile();
+                Console.WriteLine(HelpRenderer.RenderProfile(profile));
+                return FezdExitCodes.Ok;
             }
         }
 
@@ -257,6 +285,23 @@ namespace Fezd.Remote
             return result.ExitCode;
         }
 
+        internal static RemoteOptions BuildOptions(CommandLine cl) => RequireRemote(cl);
+
+        /// <summary>
+        /// True when the user supplied a gateway URL (connection file, FEZD_URL, or --remote).
+        /// Used by <c>platforms</c> so a bare invocation prints the offline note instead of
+        /// failing with "missing gateway URL".
+        /// </summary>
+        internal static bool HasRemoteTarget(CommandLine cl)
+        {
+            if (cl == null) return false;
+            if (!string.IsNullOrEmpty(cl.GetOption("remote"))) return true;
+            if (!string.IsNullOrEmpty(cl.GetOption("connection"))) return true;
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FEZD_URL"))) return true;
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FEZD_CONNECTION"))) return true;
+            return !string.IsNullOrEmpty(InferConnectionPath(cl));
+        }
+
         /// <summary>
         /// Resolve remote options: connection file / FEZD_CONNECTION first, then env,
         /// then CLI flags. Non-loopback hosts require HTTPS. Pin / --ca-cert are
@@ -264,8 +309,6 @@ namespace Fezd.Remote
         /// corp TLS-inspection proxies). Keep FEZD_PIN only when pinning a known leaf
         /// (e.g. self-signed direct path); pinning breaks under TLS inspection.
         /// </summary>
-        internal static RemoteOptions BuildOptions(CommandLine cl) => RequireRemote(cl);
-
         internal static RemoteOptions RequireRemote(CommandLine cl)
         {
             string url = null;

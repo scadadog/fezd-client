@@ -359,10 +359,10 @@ namespace Fezd.Contracts.Cli
             }),
             new CommandInfo("platforms", "platforms", CommandAvailability.Both, new[]
             {
-                "List supported Modicon controller families.",
+                "List controller families this FEZD host can target.",
             }, aliases: new[] { "plcs" }, remoteDetailLines: new[]
             {
-                "List controller families the FEZD gateway can target.",
+                "List controller families the connected FEZD gateway can target.",
             }),
             new CommandInfo("about", "about", CommandAvailability.Both, new[]
             {

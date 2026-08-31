@@ -460,7 +460,21 @@ namespace Fezd.Client
             }
             catch { /* version is informational */ }
 
+            // 5) Automation profile (best effort).
+            try
+            {
+                r.Profile = GetProfile();
+            }
+            catch { /* profile is informational */ }
+
             return r;
+        }
+
+        /// <summary>GET /api/v1/profile — vendor/toolchain identity of the gateway.</summary>
+        public AutomationProfileDto GetProfile()
+        {
+            using (HttpResponseMessage resp = Send(HttpMethod.Get, "/api/v1/profile", null, auth: true))
+                return ReadJson(resp, FezdJsonContext.Default.AutomationProfileDto);
         }
 
         // ---- upload / jobs / artifacts ----

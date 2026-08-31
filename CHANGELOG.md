@@ -4,6 +4,20 @@ Notable changes to **fezd-client**.
 
 ## [Unreleased]
 
+## [2.4.1]
+
+### Added
+
+- **Gateway automation profile:** `GET /api/v1/profile` is deserialized as
+  `AutomationProfileDto`. `fezd-client health` prints vendor, toolchain, and
+  simulator families when the gateway reports them. `fezd-client platforms`
+  lists the connected host's catalog instead of a hardcoded Modicon table.
+
+### Changed
+
+- Offline `platforms` copy is vendor-neutral: controller support depends on
+  the connected FEZD gateway (`--connection` / `FEZD_URL`).
+
 ## [2.4.0]
 
 ### Added

@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Fezd.Contracts;
 using Fezd.Contracts.Cli;
 using Xunit;
 
@@ -198,10 +199,11 @@ namespace Fezd.Contracts.Tests
             Assert.Contains(
                 CommandCatalog.Find("deploy").Options,
                 o => o.Summary != null && o.Summary.IndexOf("FEZD_APP_PASSWORD", StringComparison.Ordinal) >= 0);
-            Assert.DoesNotContain("via the UDE broker", HelpRenderer.RenderPlatforms());
-            Assert.Contains("Windows gateway", HelpRenderer.RenderPlatforms());
-            Assert.DoesNotContain("EcoStruxure", HelpRenderer.RenderPlatforms(remoteMode: true));
-            Assert.Contains("deploy --simulator", HelpRenderer.RenderPlatforms(remoteMode: true));
+            Assert.DoesNotContain("via the UDE broker", HelpRenderer.RenderPlatformsOffline());
+            Assert.Contains("connected FEZD gateway", HelpRenderer.RenderPlatformsOffline());
+            Assert.DoesNotContain("EcoStruxure", HelpRenderer.RenderPlatformsOffline());
+            Assert.DoesNotContain("Modicon", HelpRenderer.RenderPlatformsOffline());
+            Assert.Contains("deploy --simulator", HelpRenderer.RenderPlatformsOffline());
         }
 
         [Fact]
@@ -276,6 +278,50 @@ namespace Fezd.Contracts.Tests
             Assert.Contains("PLC Simulator for Copia Actions", client);
             Assert.Contains("Upload a .zef to the FEZD gateway", client);
             Assert.Contains("--simulator", client);
+        }
+
+        [Fact]
+        public void RenderProfile_ShowsVendorToolchainAndSimulatorFamilies()
+        {
+            var profile = new AutomationProfileDto
+            {
+                Id = "schneider-control-expert",
+                Vendor = "Schneider Electric",
+                Toolchain = "EcoStruxure Control Expert",
+                DisplayName = "Control Expert gateway",
+                Platforms =
+                {
+                    new AutomationPlatformDto
+                    {
+                        Family = "Modicon M340",
+                        Prefixes = "BMX P34",
+                        Simulator = true,
+                        Physical = true
+                    },
+                    new AutomationPlatformDto
+                    {
+                        Family = "Modicon M580 (ePAC)",
+                        Prefixes = "BME P58",
+                        Simulator = true,
+                        Physical = true
+                    }
+                },
+                Simulator = new SimulatorProfileDto
+                {
+                    DisplayName = "Control Expert PLC Simulator",
+                    Families = { "M340", "M580" }
+                },
+                Note = "Test note."
+            };
+
+            string text = HelpRenderer.RenderProfile(profile);
+            Assert.Contains("Schneider Electric", text);
+            Assert.Contains("EcoStruxure Control Expert", text);
+            Assert.Contains("Modicon M340", text);
+            Assert.Contains("Modicon M580", text);
+            Assert.Contains("M340", text);
+            Assert.Contains("M580", text);
+            Assert.Contains("simulator", text);
         }
 
         [Fact]

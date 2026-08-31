@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Fezd.Contracts;
 
 namespace Fezd.Contracts.Cli
 {
@@ -90,29 +91,76 @@ namespace Fezd.Contracts.Cli
             return details.ToArray();
         }
 
-        /// <summary>The `platforms` reference table.</summary>
-        public static string RenderPlatforms(bool remoteMode = false)
+        /// <summary>
+        /// Offline <c>platforms</c> copy when fezd-client has no gateway connection.
+        /// Vendor catalogs come from the connected server, not this binary.
+        /// </summary>
+        public static string RenderPlatformsOffline()
         {
             var lines = new List<string>
             {
                 "",
-                remoteMode
-                    ? "  Controller families the FEZD gateway can target"
-                    : "  Controller families supported by FEZD",
+                "  Controller families the FEZD gateway can target",
+                "  =====================================",
+                "",
+            };
+            foreach (string line in WrapText(SupportedPlatforms.ClientOfflineNote, 74))
+                lines.Add("   " + line);
+            lines.Add("");
+            return string.Join("\n", lines);
+        }
+
+        /// <summary>The `platforms` table from a gateway <see cref="AutomationProfileDto"/>.</summary>
+        public static string RenderProfile(AutomationProfileDto profile)
+        {
+            if (profile == null)
+                return RenderPlatformsOffline();
+
+            var lines = new List<string>
+            {
+                "",
+                "  " + (string.IsNullOrWhiteSpace(profile.DisplayName)
+                    ? "Controller families this FEZD gateway can target"
+                    : profile.DisplayName),
                 "  =====================================",
             };
-
-            foreach (SupportedPlatforms.Platform p in SupportedPlatforms.All)
+            if (!string.IsNullOrWhiteSpace(profile.Vendor) ||
+                !string.IsNullOrWhiteSpace(profile.Toolchain))
             {
-                lines.Add("   " + p.Family);
-                lines.Add("     range : " + p.Prefixes);
-                lines.Add("     note  : " + p.Notes);
+                lines.Add("   vendor    : " + (profile.Vendor ?? ""));
+                lines.Add("   toolchain : " + (profile.Toolchain ?? ""));
+                if (profile.Simulator != null &&
+                    (profile.Simulator.Families != null && profile.Simulator.Families.Count > 0))
+                {
+                    lines.Add("   simulator : " +
+                              (profile.Simulator.DisplayName ?? "PLC Simulator") +
+                              " (" + string.Join(", ", profile.Simulator.Families) + ")");
+                }
                 lines.Add("");
             }
 
-            string note = remoteMode
-                ? SupportedPlatforms.ClientSupportNote
-                : SupportedPlatforms.SupportNote;
+            if (profile.Platforms != null)
+            {
+                foreach (AutomationPlatformDto p in profile.Platforms)
+                {
+                    if (p == null) continue;
+                    lines.Add("   " + (p.Family ?? ""));
+                    if (!string.IsNullOrWhiteSpace(p.Prefixes))
+                        lines.Add("     range : " + p.Prefixes);
+                    var flags = new List<string>();
+                    if (p.Simulator) flags.Add("simulator");
+                    if (p.Physical) flags.Add("physical");
+                    if (flags.Count > 0)
+                        lines.Add("     mode  : " + string.Join(", ", flags));
+                    if (!string.IsNullOrWhiteSpace(p.Notes))
+                        lines.Add("     note  : " + p.Notes);
+                    lines.Add("");
+                }
+            }
+
+            string note = string.IsNullOrWhiteSpace(profile.Note)
+                ? SupportedPlatforms.GatewayNote
+                : profile.Note;
             foreach (string line in WrapText(note, 74))
                 lines.Add("   " + line);
             lines.Add("");
